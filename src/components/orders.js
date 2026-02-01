@@ -7,6 +7,7 @@ export const renderOrders = () => {
     const isAdmin = user && user.role === 'admin';
     const users = getUsers();
     const operators = users.filter(u => u.role === 'operator');
+    let editingOrderId = null;
 
     const renderList = () => {
         const orders = getOrders();
@@ -23,7 +24,7 @@ export const renderOrders = () => {
                     <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Fecha Límite</th>
                     <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Prioridad</th>
                     <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Estado</th>
-                    ${!isAdmin ? '<th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Acción</th>' : ''}
+                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Acción</th>
                 </tr>
             </thead>
             <tbody>
@@ -56,15 +57,15 @@ export const renderOrders = () => {
                             ">${order.status}</span>
                             ${!isAdmin && order.status === 'En Progreso' ? `<span style="display:block; font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">${order.progress}%</span>` : ''}
                         </td>
-                        ${!isAdmin ? `
                         <td style="padding: 1rem;">
-                            ${order.status === 'Pendiente' ? `
+                            ${isAdmin ? `
+                                <button class="btn-action-edit" data-id="${order.id}" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--color-accent-100); border-radius: 4px; color: var(--color-accent-600); border: 1px solid var(--border-light); cursor: pointer;">Editar</button>
+                            ` : (order.status === 'Pendiente' ? `
                                 <button class="btn-action-accept" data-id="${order.id}" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--color-primary-100); border-radius: 4px; color: var(--color-primary-700); border: 1px solid var(--border-light); cursor: pointer;">Aceptar</button>
-                            ` : order.status === 'En Progreso' ? `
+                            ` : (order.status === 'En Progreso' ? `
                                 <button class="btn-action-update" data-id="${order.id}" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--color-accent-100); border-radius: 4px; color: var(--color-accent-700); border: none; cursor: pointer;">Actualizar</button>
-                            ` : '-'}
+                            ` : '-'))}
                         </td>
-                        ` : ''}
                     </tr>
                 `).join('')}
             </tbody>
@@ -85,7 +86,7 @@ export const renderOrders = () => {
     <!-- Modal -->
     <div id="order-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 50;">
         <div class="card" style="width: 100%; max-width: 500px; padding: 2rem;">
-            <h2 style="margin-bottom: 1.5rem; font-weight: 600;">Crear Nueva Orden</h2>
+            <h2 id="order-modal-title" style="margin-bottom: 1.5rem; font-weight: 600;">Crear Nueva Orden</h2>
             <form id="order-form" style="display: flex; flex-direction: column; gap: 1rem;">
                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                     <label style="font-size: 0.875rem; font-weight: 500;">Cliente</label>
@@ -122,9 +123,26 @@ export const renderOrders = () => {
                             <option value="Alta">Alta</option>
                         </select>
                 </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="font-size: 0.875rem; font-weight: 500;">Estado</label>
+                        <select name="status" style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En Progreso">En Progreso</option>
+                            <option value="Completada">Completada</option>
+                            <option value="Retrasada">Retrasada</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="font-size: 0.875rem; font-weight: 500;">Avance (%)</label>
+                        <input name="progress" type="number" min="0" max="100" value="0" required style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
+                    </div>
+                </div>
+
                 <div style="display: flex; gap: 1rem; margin-top: 1rem;">
                     <button type="button" id="btn-cancel" class="btn" style="flex: 1; border: 1px solid var(--border-light);">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Crear Orden</button>
+                    <button type="submit" id="btn-submit" class="btn btn-primary" style="flex: 1;">Crear Orden</button>
                 </div>
             </form>
         </div>
@@ -137,33 +155,82 @@ export const renderOrders = () => {
         const btnNew = container.querySelector('#btn-new-order');
         const btnCancel = container.querySelector('#btn-cancel');
         const form = container.querySelector('#order-form');
+        const modalTitle = container.querySelector('#order-modal-title');
+        const btnSubmit = container.querySelector('#btn-submit');
 
-        btnNew.addEventListener('click', () => {
+        const openCreate = () => {
+            editingOrderId = null;
+            if (modalTitle) modalTitle.textContent = 'Crear Nueva Orden';
+            if (btnSubmit) btnSubmit.textContent = 'Crear Orden';
+            form.reset();
+            const statusEl = form.querySelector('[name="status"]');
+            const progressEl = form.querySelector('[name="progress"]');
+            const priorityEl = form.querySelector('[name="priority"]');
+            if (statusEl) statusEl.value = 'Pendiente';
+            if (progressEl) progressEl.value = '0';
+            if (priorityEl) priorityEl.value = 'Media';
             modal.style.display = 'flex';
-        });
+        };
+
+        const openEdit = (order) => {
+            editingOrderId = order.id;
+            if (modalTitle) modalTitle.textContent = `Editar Orden ${order.id}`;
+            if (btnSubmit) btnSubmit.textContent = 'Guardar Cambios';
+
+            form.querySelector('[name="client"]').value = order.client || '';
+            form.querySelector('[name="description"]').value = order.description || '';
+            form.querySelector('[name="assignedTo"]').value = order.assignedTo || '';
+            form.querySelector('[name="quantity"]').value = order.quantity ?? '';
+            form.querySelector('[name="deadline"]').value = order.deadline || '';
+            form.querySelector('[name="priority"]').value = order.priority || 'Media';
+            form.querySelector('[name="status"]').value = order.status || 'Pendiente';
+            form.querySelector('[name="progress"]').value = order.progress ?? 0;
+
+            modal.style.display = 'flex';
+        };
+
+        btnNew.addEventListener('click', openCreate);
 
         btnCancel.addEventListener('click', () => {
             modal.style.display = 'none';
+            editingOrderId = null;
+        });
+
+        container.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('btn-action-edit')) return;
+            const id = e.target.dataset.id;
+            const order = getOrders().find(o => o.id === id);
+            if (!order) return;
+            openEdit(order);
         });
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            const newOrder = {
-                id: `ORD-${Math.floor(Math.random() * 10000)}`,
+            const payload = {
                 client: formData.get('client'),
                 description: formData.get('description'),
-                assignedTo: formData.get('assignedTo'),
+                assignedTo: formData.get('assignedTo') || null,
                 quantity: parseInt(formData.get('quantity')),
                 deadline: formData.get('deadline'),
                 priority: formData.get('priority'),
-                status: 'Pendiente',
-                progress: 0
+                status: formData.get('status'),
+                progress: Math.max(0, Math.min(100, parseInt(formData.get('progress')) || 0))
             };
 
-            addOrder(newOrder);
+            if (editingOrderId) {
+                updateOrder(editingOrderId, payload);
+            } else {
+                const newOrder = {
+                    id: `ORD-${Math.floor(Math.random() * 10000)}`,
+                    ...payload
+                };
+                addOrder(newOrder);
+            }
+
             modal.style.display = 'none';
             form.reset();
+            editingOrderId = null;
             container.querySelector('#orders-list').innerHTML = renderList();
         });
     } else {

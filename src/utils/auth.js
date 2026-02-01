@@ -46,3 +46,22 @@ export const hasPermission = (permission) => {
 
     return false;
 };
+
+import { updateUser } from '../mock_data/data.js';
+
+export const updateCurrentUser = (updates) => {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return { success: false, message: 'No active session' };
+
+    // Update in DB
+    updateUser(currentUser.id, updates);
+
+    // Update in Session
+    const updatedUser = { ...currentUser, ...updates };
+    // Remove password from session if it was part of updates (though it shouldn't be stored in session anyway)
+    if (updatedUser.password) delete updatedUser.password;
+
+    localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
+
+    return { success: true, user: updatedUser };
+};

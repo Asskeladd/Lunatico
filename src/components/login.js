@@ -8,15 +8,38 @@ export const renderLogin = () => {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: var(--bg-app);
         position: fixed;
         top: 0;
         left: 0;
         z-index: 1000;
+        overflow: hidden;
     `;
 
     container.innerHTML = `
-        <div class="card" style="width: 100%; max-width: 400px; padding: 2.5rem;">
+        <video autoplay muted loop playsinline id="login-video" style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -2;
+        ">
+            <source src="/login-background.mp4" type="video/mp4">
+        </video>
+
+        <div id="login-overlay" style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%);
+            z-index: -1;
+            pointer-events: none;
+        "></div>
+
+        <div class="card" style="width: 100%; max-width: 400px; padding: 2.5rem; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);">
             <div style="text-align: center; margin-bottom: 2rem;">
                 <h1 style="font-weight: 700; font-size: 2rem; margin-bottom: 0.5rem;">Taller<span style="color: var(--color-accent-400)">Zambrano</span></h1>
                 <p style="color: var(--text-muted);">Inicia sesión en tu cuenta</p>
@@ -69,9 +92,6 @@ export const renderLogin = () => {
 
     linkTracking.addEventListener('click', (e) => {
         e.preventDefault();
-        // Custom event to trigger navigation in router if we had a full router exposed here, 
-        // but since login is overlay, we can just use the exposed navigate function if we pass it, 
-        // or cleaner: use location hash or a global event.
         window.dispatchEvent(new CustomEvent('navigate', { detail: 'client-tracking' }));
     });
 

@@ -4,6 +4,7 @@ import { renderTracking } from '../components/tracking.js';
 import { renderReports } from '../components/reports.js';
 import { renderLogin } from '../components/login.js';
 import { renderClientTracking } from '../components/client_tracking.js';
+import { renderOperators } from '../components/operators.js';
 import { requireAuth, logout } from './auth.js';
 
 const routes = {
@@ -11,6 +12,7 @@ const routes = {
     'orders': { render: renderOrders, title: 'Órdenes de Trabajo' },
     'tracking': { render: renderTracking, title: 'Seguimiento de Máquinas' },
     'reports': { render: renderReports, title: 'Reportes de Productividad' },
+    'operators': { render: renderOperators, title: 'Gestión de Operadores' },
     'client-tracking': { render: renderClientTracking, title: 'Rastreo de Pedidos' }
 };
 

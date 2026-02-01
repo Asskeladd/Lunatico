@@ -55,6 +55,18 @@ export const addOrder = (order) => {
     saveStore(store);
 }
 
+export const addMachine = (machine) => {
+    const store = getStore();
+    store.machines.push(machine);
+    saveStore(store);
+}
+
+export const addUser = (user) => {
+    const store = getStore();
+    store.users.push(user);
+    saveStore(store);
+}
+
 export const updateOrder = (id, updates) => {
     const store = getStore();
     const index = store.orders.findIndex(o => o.id === id);
@@ -69,6 +81,15 @@ export const updateMachine = (id, updates) => {
     const index = store.machines.findIndex(m => m.id === id);
     if (index !== -1) {
         store.machines[index] = { ...store.machines[index], ...updates };
+        saveStore(store);
+    }
+}
+
+export const updateUser = (id, updates) => {
+    const store = getStore();
+    const index = store.users.findIndex(u => u.id === id);
+    if (index !== -1) {
+        store.users[index] = { ...store.users[index], ...updates };
         saveStore(store);
     }
 }
