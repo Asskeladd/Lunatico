@@ -2,115 +2,210 @@ import { login } from '../utils/auth.js';
 
 export const renderLogin = () => {
     const container = document.createElement('div');
-    container.style.cssText = `
-        height: 100vh;
-        width: 100vw;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 1000;
-        overflow: hidden;
-    `;
 
     container.innerHTML = `
-        <video autoplay muted loop playsinline id="login-video" style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: -2;
-        ">
-            <source src="/login-background.mp4" type="video/mp4">
-        </video>
-
-        <div id="login-overlay" style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%);
-            z-index: -1;
-            pointer-events: none;
-        "></div>
-
-        <div class="card" style="width: 100%; max-width: 400px; padding: 2.5rem; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);">
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <h1 style="font-weight: 700; font-size: 2rem; margin-bottom: 0.5rem;">Taller<span style="color: var(--color-accent-400)">Zambrano</span></h1>
-                <p style="color: var(--text-muted);">Inicia sesión en tu cuenta</p>
-            </div>
+        <style>
+            .login-wrapper {
+                min-height: 100vh;
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: #f8fafc; /* Solid light gray background */
+                padding: var(--space-lg);
+            }
             
-            <form id="login-form" style="display: flex; flex-direction: column; gap: 1rem;">
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                     <label style="font-size: 0.875rem; font-weight: 500;">Usuario</label>
-                     <input type="text" name="username" class="login-input" placeholder="admin o operator" required 
-                        style="padding: 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm); outline: none;">
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                     <label style="font-size: 0.875rem; font-weight: 500;">Contraseña</label>
-                     <input type="password" name="password" class="login-input" placeholder="123" required 
-                        style="padding: 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm); outline: none;">
+            .login-box {
+                background: #ffffff;
+                padding: 3rem;
+                border-radius: 8px; /* Simple radius */
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Subtle shadow */
+                width: 100%;
+                max-width: 450px;
+                border: 1px solid #e2e8f0;
+            }
+            
+            .login-header {
+                text-align: center;
+                margin-bottom: 2.5rem;
+            }
+            
+            .login-logo {
+                font-size: 3.5rem;
+                margin-bottom: 1rem;
+                display: block;
+            }
+            
+            .login-title {
+                font-size: 1.875rem;
+                font-weight: 700;
+                color: #1e293b;
+                margin-bottom: 0.5rem;
+                font-family: inherit;
+            }
+            
+            .login-subtitle {
+                color: #64748b;
+                font-size: 1rem;
+            }
+            
+            .login-error {
+                background-color: #fef2f2;
+                color: #dc2626;
+                padding: 1rem;
+                border-radius: 6px;
+                margin-bottom: 1.5rem;
+                font-size: 0.875rem;
+                display: none;
+                border: 1px solid #fee2e2;
+                text-align: center;
+            }
+            
+            .form-group {
+                margin-bottom: 1.5rem;
+            }
+            
+            .form-label {
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                color: #334155;
+                font-size: 0.9375rem;
+                text-align: left;
+            }
+            
+            .form-input {
+                width: 100%;
+                padding: 0.75rem 1rem;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                font-size: 1rem;
+                color: #0f172a;
+                background-color: #fff;
+                transition: border-color 0.2s, box-shadow 0.2s;
+            }
+            
+            .form-input:focus {
+                outline: none;
+                border-color: #2563eb;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            }
+            
+            .btn-login {
+                width: 100%;
+                padding: 0.875rem;
+                background-color: #0f172a; /* Solid dark color - professional */
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background-color 0.2s;
+                margin-top: 1rem;
+            }
+            
+            .btn-login:hover {
+                background-color: #1e293b;
+            }
+            
+            .btn-login:disabled {
+                background-color: #94a3b8;
+                cursor: not-allowed;
+            }
+            
+            .login-footer {
+                text-align: center;
+                margin-top: 2rem;
+                padding-top: 1.5rem;
+                border-top: 1px solid #e2e8f0;
+            }
+            
+            .login-footer a {
+                color: #2563eb; /* Simple blue link */
+                text-decoration: none;
+                font-size: 0.9375rem;
+                font-weight: 500;
+            }
+            
+            .login-footer a:hover {
+                text-decoration: underline;
+                color: #1d4ed8;
+            }
+        </style>
+        
+        <div class="login-wrapper">
+            <div class="login-box">
+                <div class="login-header">
+                    <div class="login-logo">🏭</div>
+                    <h1 class="login-title">Taller Zambrano</h1>
+                    <p class="login-subtitle">Ingresa tus credenciales</p>
                 </div>
                 
-                <p id="login-error" style="color: var(--color-danger); font-size: 0.875rem; min-height: 1.25em; text-align: center;"></p>
+                <div id="login-error" class="login-error"></div>
                 
-                <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem; padding: 0.75rem; font-weight: 600;">Ingresar</button>
-            </form>
-
-            <div style="margin-top: 2rem;">
-                 <button id="link-tracking" style="
-                    width: 100%;
-                    padding: 1rem;
-                    background: var(--bg-body);
-                    border: 2px dashed var(--color-accent-300);
-                    color: var(--color-accent-700);
-                    font-weight: 600;
-                    border-radius: var(--radius-md);
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.5rem;
-                 " onmouseover="this.style.background='var(--color-accent-50)'; this.style.borderColor='var(--color-accent-500)'" onmouseout="this.style.background='var(--bg-body)'; this.style.borderColor='var(--color-accent-300)'">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    ¿Eres cliente? Rastrear Pedido
-                 </button>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label class="form-label">Usuario</label>
+                        <input 
+                            type="text" 
+                            class="form-input" 
+                            name="username" 
+                            placeholder="Ej. admin" 
+                            required 
+                            autocomplete="username"
+                            autofocus
+                        />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Contraseña</label>
+                        <input 
+                            type="password" 
+                            class="form-input" 
+                            name="password" 
+                            placeholder="••••••••" 
+                            required
+                            autocomplete="current-password"
+                        />
+                    </div>
+                    
+                    <button type="submit" class="btn-login">
+                        Iniciar Sesión
+                    </button>
+                </form>
+                
+                <div class="login-footer">
+                    <a href="#client-tracking">Seguimiento de Pedidos →</a>
+                </div>
             </div>
-            
-          
+        </div>
     `;
 
     const form = container.querySelector('#login-form');
-    const errorMsg = container.querySelector('#login-error');
-    const linkTracking = container.querySelector('#link-tracking');
+    const errorDiv = container.querySelector('#login-error');
 
-    linkTracking.addEventListener('click', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent('navigate', { detail: 'client-tracking' }));
-    });
+        errorDiv.style.display = 'none';
 
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const result = login(formData.get('username'), formData.get('password'));
+        const formData = new FormData(form);
+        const username = formData.get('username');
+        const password = formData.get('password');
 
-        if (result.success) {
-            location.reload();
-        } else {
-            errorMsg.textContent = 'Credenciales inválidas';
-            container.querySelectorAll('input').forEach(i => i.style.borderColor = 'var(--color-danger)');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Ingresando...';
+
+        try {
+            await login(username, password);
+            window.location.reload();
+        } catch (error) {
+            errorDiv.textContent = error.message || 'Error al iniciar sesión. Verifica tus credenciales.';
+            errorDiv.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Iniciar Sesión';
         }
-    });
-
-    container.querySelectorAll('.login-input').forEach(input => {
-        input.addEventListener('focus', () => input.style.borderColor = 'var(--border-focus)');
-        input.addEventListener('blur', () => input.style.borderColor = 'var(--border-light)');
     });
 
     return container;

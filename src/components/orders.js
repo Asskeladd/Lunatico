@@ -1,263 +1,295 @@
-import { getOrders, addOrder, updateOrder, getUsers } from '../mock_data/data.js';
-import { getCurrentUser } from '../utils/auth.js';
+import { ordersApi, clientesApi } from '../utils/api.js';
+import { getCurrentUser, isAdmin } from '../utils/auth.js';
 
 export const renderOrders = () => {
     const container = document.createElement('div');
     const user = getCurrentUser();
-    const isAdmin = user && user.role === 'admin';
-    const users = getUsers();
-    const operators = users.filter(u => u.role === 'operator');
-    let editingOrderId = null;
+    let orders = [];
+    let clientes = [];
+    let editingId = null;
 
-    const renderList = () => {
-        const orders = getOrders();
+    const renderContent = () => {
         return `
-      <div class="card">
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="text-align: left; border-bottom: 1px solid var(--border-light);">
-                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">ID</th>
-                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Cliente</th>
-                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Descripción</th>
-                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Asignado A</th>
-                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Cant.</th>
-                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Fecha Límite</th>
-                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Prioridad</th>
-                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Estado</th>
-                    <th style="padding: 1rem; color: var(--text-muted); font-weight: 500;">Acción</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${orders.map(order => `
-                    <tr style="border-bottom: 1px solid var(--border-light);">
-                        <td style="padding: 1rem;">${order.id}</td>
-                        <td style="padding: 1rem;"><strong>${order.client}</strong></td>
-                        <td style="padding: 1rem;">${order.description}</td>
-                        <td style="padding: 1rem; font-size: 0.875rem; color: var(--text-muted);">
-                            ${order.assignedTo ? users.find(u => u.username === order.assignedTo)?.name || order.assignedTo : 'Sin asignar'}
-                        </td>
-                        <td style="padding: 1rem;">${order.quantity}</td>
-                        <td style="padding: 1rem;">${order.deadline}</td>
-                        <td style="padding: 1rem;">
-                             <span style="
-                                padding: 0.25rem 0.5rem; 
-                                border-radius: 4px; 
-                                font-size: 0.75rem; 
-                                background: ${order.priority === 'Alta' ? 'rgba(239, 68, 68, 0.1)' : order.priority === 'Media' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(59, 130, 246, 0.1)'}; 
-                                color: ${order.priority === 'Alta' ? 'var(--color-danger)' : order.priority === 'Media' ? 'var(--color-warning)' : 'var(--color-info)'};
-                            ">${order.priority}</span>
-                        </td>
-                        <td style="padding: 1rem;">
-                            <span style="
-                                padding: 0.25rem 0.5rem; 
-                                border-radius: var(--radius-full); 
-                                font-size: 0.75rem; 
-                                background: ${order.status === 'En Progreso' ? 'var(--color-accent-100)' : order.status === 'Completada' ? 'rgba(16, 185, 129, 0.1)' : 'var(--color-primary-100)'}; 
-                                color: ${order.status === 'En Progreso' ? 'var(--color-accent-600)' : order.status === 'Completada' ? 'var(--color-success)' : 'var(--color-primary-600)'};
-                            ">${order.status}</span>
-                            ${!isAdmin && order.status === 'En Progreso' ? `<span style="display:block; font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">${order.progress}%</span>` : ''}
-                        </td>
-                        <td style="padding: 1rem;">
-                            ${isAdmin ? `
-                                <button class="btn-action-edit" data-id="${order.id}" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--color-accent-100); border-radius: 4px; color: var(--color-accent-600); border: 1px solid var(--border-light); cursor: pointer;">Editar</button>
-                            ` : (order.status === 'Pendiente' ? `
-                                <button class="btn-action-accept" data-id="${order.id}" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--color-primary-100); border-radius: 4px; color: var(--color-primary-700); border: 1px solid var(--border-light); cursor: pointer;">Aceptar</button>
-                            ` : (order.status === 'En Progreso' ? `
-                                <button class="btn-action-update" data-id="${order.id}" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--color-accent-100); border-radius: 4px; color: var(--color-accent-700); border: none; cursor: pointer;">Actualizar</button>
-                            ` : '-'))}
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-      </div>
-      `;
+            <div class="fade-in">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
+                    <div>
+                        <h2>Órdenes de Trabajo</h2>
+                        <p style="color: var(--text-muted); font-size: 0.875rem;">Gestión de órdenes de producción</p>
+                    </div>
+                    ${isAdmin() ? `
+                        <button class="btn btn-primary" onclick="window.showOrderForm()">
+                            + Nueva Orden
+                        </button>
+                    ` : ''}
+                </div>
+
+                <div class="ui-card">
+                    ${orders.length === 0 ? `
+                        <div style="text-align: center; padding: var(--space-xl); color: var(--text-muted);">
+                            <p>No hay órdenes registradas</p>
+                        </div>
+                    ` : `
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Tipo Pieza</th>
+                                    <th>Cantidad</th>
+                                    <th>Fecha Entrega</th>
+                                    <th>Prioridad</th>
+                                    <th>Estado</th>
+                                    <th>Progreso</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${orders.map(order => `
+                                    <tr>
+                                        <td><strong>#${order.id_orden}</strong></td>
+                                        <td>${order.cliente_nombre || 'N/A'}</td>
+                                        <td>${order.tipo_pieza || '-'}</td>
+                                        <td>${order.cantidad}</td>
+                                        <td>${order.fecha_entrega ? new Date(order.fecha_entrega).toLocaleDateString() : '-'}</td>
+                                        <td>
+                                            <span class="badge badge--${order.prioridad === 'Alta' ? 'danger' : order.prioridad === 'Media' ? 'warning' : 'info'}">
+                                                ${order.prioridad}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge--${order.estado === 'Completada' ? 'success' : order.estado === 'En Progreso' ? 'info' : 'warning'}">
+                                                ${order.estado}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; align-items: center; gap: var(--space-sm);">
+                                                <div style="flex: 1; height: 6px; background: var(--border-light); border-radius: var(--radius-full); overflow: hidden;">
+                                                    <div style="width: ${order.progress || 0}%; height: 100%; background: var(--gradient-primary);"></div>
+                                                </div>
+                                                <span style="font-size: 0.75rem; color: var(--text-muted); min-width: 35px;">${order.progress || 0}%</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style="display: flex; gap: var(--space-sm);">
+                                                <button class="btn btn-sm btn-secondary" onclick="window.editOrder(${order.id_orden})">
+                                                    Editar
+                                                </button>
+                                                ${isAdmin() ? `
+                                                    <button class="btn btn-sm" style="background: var(--color-danger); color: white;" onclick="window.deleteOrder(${order.id_orden})">
+                                                        Eliminar
+                                                    </button>
+                                                ` : ''}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `}
+                </div>
+
+                <!-- Modal Form -->
+                <div id="order-modal" class="modal-backdrop" style="display: none;">
+                    <div class="modal" onclick="event.stopPropagation()">
+                        <div class="modal__header">
+                            <h3 class="modal__title">${editingId ? 'Editar' : 'Nueva'} Orden</h3>
+                            <button class="modal__close" onclick="window.hideOrderForm()">×</button>
+                        </div>
+                        
+                        <form id="order-form">
+                            <div class="grid grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Cliente *</label>
+                                    <select class="form-select" name="id_cliente" required>
+                                        <option value="">Seleccionar cliente...</option>
+                                        ${clientes.map(c => `<option value="${c.id_cliente}">${c.nombre}</option>`).join('')}
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Tipo de Pieza</label>
+                                    <input type="text" class="form-input" name="tipo_pieza" />
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Descripción</label>
+                                <textarea class="form-textarea" name="description" rows="3"></textarea>
+                            </div>
+                            
+                            <div class="grid grid-3">
+                                <div class="form-group">
+                                    <label class="form-label">Cantidad *</label>
+                                    <input type="number" class="form-input" name="cantidad" min="1" required />
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Fecha Entrega</label>
+                                    <input type="date" class="form-input" name="fecha_entrega" />
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Prioridad *</label>
+                                    <select class="form-select" name="prioridad" required>
+                                        <option value="Baja">Baja</option>
+                                        <option value="Media" selected>Media</option>
+                                        <option value="Alta">Alta</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            ${editingId ? `
+                                <div class="grid grid-2">
+                                    <div class="form-group">
+                                        <label class="form-label">Estado</label>
+                                        <select class="form-select" name="estado">
+                                            <option value="Pendiente">Pendiente</option>
+                                            <option value="En Progreso">En Progreso</option>
+                                            <option value="Completada">Completada</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label class="form-label">Progreso (%)</label>
+                                        <input type="number" class="form-input" name="progress" min="0" max="100" />
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
+                                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                    ${editingId ? 'Actualizar' : 'Crear'}
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="window.hideOrderForm()">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
     };
 
-    container.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <h1 style="font-size: 1.5rem; font-weight: 600;">Órdenes de Trabajo</h1>
-        ${isAdmin ? '<button id="btn-new-order" class="btn btn-primary">+ Nueva Orden</button>' : ''}
-    </div>
-    <div id="orders-list">
-        ${renderList()}
-    </div>
-    
-    <!-- Modal -->
-    <div id="order-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 50;">
-        <div class="card" style="width: 100%; max-width: 500px; padding: 2rem;">
-            <h2 id="order-modal-title" style="margin-bottom: 1.5rem; font-weight: 600;">Crear Nueva Orden</h2>
-            <form id="order-form" style="display: flex; flex-direction: column; gap: 1rem;">
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                    <label style="font-size: 0.875rem; font-weight: 500;">Cliente</label>
-                    <input name="client" required style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                    <label style="font-size: 0.875rem; font-weight: 500;">Descripción</label>
-                    <input name="description" required style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
-                </div>
-                
-                 <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="font-size: 0.875rem; font-weight: 500;">Asignar Operador</label>
-                        <select name="assignedTo" required style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
-                            <option value="">Seleccione un operador...</option>
-                            ${operators.map(op => `<option value="${op.username}">${op.name}</option>`).join('')}
-                        </select>
-                </div>
+    const loadData = async () => {
+        container.innerHTML = '<div style="padding: var(--space-xl); text-align: center;"><p>Cargando órdenes...</p></div>';
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="font-size: 0.875rem; font-weight: 500;">Cantidad</label>
-                        <input name="quantity" type="number" required style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="font-size: 0.875rem; font-weight: 500;">Fecha Límite</label>
-                        <input name="deadline" type="date" required style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
-                    </div>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="font-size: 0.875rem; font-weight: 500;">Prioridad</label>
-                        <select name="priority" style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
-                            <option value="Baja">Baja</option>
-                            <option value="Media" selected>Media</option>
-                            <option value="Alta">Alta</option>
-                        </select>
-                </div>
+        try {
+            [orders, clientes] = await Promise.all([
+                ordersApi.getAll(),
+                clientesApi.getAll()
+            ]);
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="font-size: 0.875rem; font-weight: 500;">Estado</label>
-                        <select name="status" style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
-                            <option value="Pendiente">Pendiente</option>
-                            <option value="En Progreso">En Progreso</option>
-                            <option value="Completada">Completada</option>
-                            <option value="Retrasada">Retrasada</option>
-                        </select>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="font-size: 0.875rem; font-weight: 500;">Avance (%)</label>
-                        <input name="progress" type="number" min="0" max="100" value="0" required style="padding: 0.5rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
-                    </div>
-                </div>
+            container.innerHTML = renderContent();
+            setupEventListeners();
+        } catch (error) {
+            container.innerHTML = '<div style="padding: var(--space-xl); text-align: center; color: var(--color-danger);">Error al cargar órdenes</div>';
+        }
+    };
 
-                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                    <button type="button" id="btn-cancel" class="btn" style="flex: 1; border: 1px solid var(--border-light);">Cancelar</button>
-                    <button type="submit" id="btn-submit" class="btn btn-primary" style="flex: 1;">Crear Orden</button>
-                </div>
-            </form>
-        </div>
-    </div>
-  `;
-
-    // Event Listeners
-    if (isAdmin) {
-        const modal = container.querySelector('#order-modal');
-        const btnNew = container.querySelector('#btn-new-order');
-        const btnCancel = container.querySelector('#btn-cancel');
+    const setupEventListeners = () => {
         const form = container.querySelector('#order-form');
-        const modalTitle = container.querySelector('#order-modal-title');
-        const btnSubmit = container.querySelector('#btn-submit');
+        const modal = container.querySelector('#order-modal');
 
-        const openCreate = () => {
-            editingOrderId = null;
-            if (modalTitle) modalTitle.textContent = 'Crear Nueva Orden';
-            if (btnSubmit) btnSubmit.textContent = 'Crear Orden';
-            form.reset();
-            const statusEl = form.querySelector('[name="status"]');
-            const progressEl = form.querySelector('[name="progress"]');
-            const priorityEl = form.querySelector('[name="priority"]');
-            if (statusEl) statusEl.value = 'Pendiente';
-            if (progressEl) progressEl.value = '0';
-            if (priorityEl) priorityEl.value = 'Media';
-            modal.style.display = 'flex';
-        };
-
-        const openEdit = (order) => {
-            editingOrderId = order.id;
-            if (modalTitle) modalTitle.textContent = `Editar Orden ${order.id}`;
-            if (btnSubmit) btnSubmit.textContent = 'Guardar Cambios';
-
-            form.querySelector('[name="client"]').value = order.client || '';
-            form.querySelector('[name="description"]').value = order.description || '';
-            form.querySelector('[name="assignedTo"]').value = order.assignedTo || '';
-            form.querySelector('[name="quantity"]').value = order.quantity ?? '';
-            form.querySelector('[name="deadline"]').value = order.deadline || '';
-            form.querySelector('[name="priority"]').value = order.priority || 'Media';
-            form.querySelector('[name="status"]').value = order.status || 'Pendiente';
-            form.querySelector('[name="progress"]').value = order.progress ?? 0;
-
-            modal.style.display = 'flex';
-        };
-
-        btnNew.addEventListener('click', openCreate);
-
-        btnCancel.addEventListener('click', () => {
-            modal.style.display = 'none';
-            editingOrderId = null;
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                editingId = null;
+            }
         });
 
-        container.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('btn-action-edit')) return;
-            const id = e.target.dataset.id;
-            const order = getOrders().find(o => o.id === id);
-            if (!order) return;
-            openEdit(order);
-        });
-
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            const payload = {
-                client: formData.get('client'),
-                description: formData.get('description'),
-                assignedTo: formData.get('assignedTo') || null,
-                quantity: parseInt(formData.get('quantity')),
-                deadline: formData.get('deadline'),
-                priority: formData.get('priority'),
-                status: formData.get('status'),
-                progress: Math.max(0, Math.min(100, parseInt(formData.get('progress')) || 0))
+
+            const formData = new FormData(form);
+            const data = {
+                id_cliente: parseInt(formData.get('id_cliente')),
+                tipo_pieza: formData.get('tipo_pieza') || null,
+                description: formData.get('description') || null,
+                cantidad: parseInt(formData.get('cantidad')),
+                fecha_entrega: formData.get('fecha_entrega') || null,
+                prioridad: formData.get('prioridad')
             };
 
-            if (editingOrderId) {
-                updateOrder(editingOrderId, payload);
-            } else {
-                const newOrder = {
-                    id: `ORD-${Math.floor(Math.random() * 10000)}`,
-                    ...payload
-                };
-                addOrder(newOrder);
+            if (editingId) {
+                data.estado = formData.get('estado');
+                data.progress = parseInt(formData.get('progress')) || 0;
             }
 
-            modal.style.display = 'none';
-            form.reset();
-            editingOrderId = null;
-            container.querySelector('#orders-list').innerHTML = renderList();
-        });
-    } else {
-        // Operator Logic
-        container.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-action-accept')) {
-                const id = e.target.dataset.id;
-                if (confirm(`¿Aceptar Orden ${id}?`)) {
-                    updateOrder(id, { status: 'En Progreso', progress: 0 });
-                    container.querySelector('#orders-list').innerHTML = renderList();
+            try {
+                if (editingId) {
+                    await ordersApi.update(editingId, data);
+                } else {
+                    await ordersApi.create(data);
                 }
-            } else if (e.target.classList.contains('btn-action-update')) {
-                const id = e.target.dataset.id;
-                const completion = prompt("Ingrese el porcentaje de avance (0-100):");
-                if (completion !== null) {
-                    const progress = parseInt(completion);
-                    if (progress >= 0 && progress <= 100) {
-                        const status = progress === 100 ? 'Completada' : 'En Progreso';
-                        updateOrder(id, { progress, status });
-                        container.querySelector('#orders-list').innerHTML = renderList();
-                    } else {
-                        alert("Por favor ingrese un número válido entre 0 y 100.");
-                    }
-                }
+
+                modal.style.display = 'none';
+                editingId = null;
+                form.reset();
+                await loadData();
+            } catch (error) {
+                alert('Error: ' + error.message);
             }
         });
-    }
+    };
 
+    // Global functions
+    window.showOrderForm = () => {
+        editingId = null;
+        const modal = container.querySelector('#order-modal');
+        const form = container.querySelector('#order-form');
+        form.reset();
+        modal.style.display = 'flex';
+        container.innerHTML = renderContent();
+        setupEventListeners();
+    };
+
+    window.hideOrderForm = () => {
+        const modal = container.querySelector('#order-modal');
+        modal.style.display = 'none';
+        editingId = null;
+    };
+
+    window.editOrder = async (id) => {
+        try {
+            const order = orders.find(o => o.id_orden === id);
+            if (!order) return;
+
+            editingId = id;
+            container.innerHTML = renderContent();
+            setupEventListeners();
+
+            const form = container.querySelector('#order-form');
+            form.id_cliente.value = order.id_cliente;
+            form.tipo_pieza.value = order.tipo_pieza || '';
+            form.description.value = order.description || '';
+            form.cantidad.value = order.cantidad;
+            form.fecha_entrega.value = order.fecha_entrega ? order.fecha_entrega.split('T')[0] : '';
+            form.prioridad.value = order.prioridad;
+
+            if (form.estado) {
+                form.estado.value = order.estado;
+                form.progress.value = order.progress || 0;
+            }
+
+            const modal = container.querySelector('#order-modal');
+            modal.style.display = 'flex';
+        } catch (error) {
+            alert('Error al cargar orden');
+        }
+    };
+
+    window.deleteOrder = async (id) => {
+        if (!confirm('¿Eliminar esta orden?')) return;
+
+        try {
+            await ordersApi.delete(id);
+            await loadData();
+        } catch (error) {
+            alert('Error al eliminar: ' + error.message);
+        }
+    };
+
+    loadData();
     return container;
 };

@@ -1,67 +1,53 @@
-import { getStore } from '../mock_data/data.js';
+import { authApi, setToken } from '../utils/api.js';
 
-const SESSION_KEY = 'lunatico_session_v1';
+export const getCurrentUser = () => {
+    const sessionData = localStorage.getItem('lunatico_session_v1');
+    if (!sessionData) return null;
+    try {
+        return JSON.parse(sessionData);
+    } catch {
+        return null;
+    }
+};
 
-export const login = (username, password) => {
-    const users = getStore().users || [];
-    const user = users.find(u => u.username === username && u.password === password);
+export const login = async (username, password) => {
+    const response = await authApi.login(username, password);
 
-    if (user) {
-        // Don't store password in session
-        const { password, ...safeUser } = user;
-        localStorage.setItem(SESSION_KEY, JSON.stringify(safeUser));
-        return { success: true, user: safeUser };
+    if (response.success && response.user) {
+        const sessionData = {
+            ...response.user,
+            loginTime: new Date().toISOString()
+        };
+        localStorage.setItem('lunatico_session_v1', JSON.stringify(sessionData));
+        return response.user;
     }
 
-    return { success: false, message: 'Invalid credentials' };
+    throw new Error(response.message || 'Error al iniciar sesión');
 };
 
 export const logout = () => {
-    localStorage.removeItem(SESSION_KEY);
-    window.location.reload();
+    authApi.logout();
+    window.location.href = '/';
 };
-
-export const getCurrentUser = () => {
-    const session = localStorage.getItem(SESSION_KEY);
-    return session ? JSON.parse(session) : null;
-};
-
-export const requireAuth = (route) => {
-    const user = getCurrentUser();
-    if (!user) return false;
-    return true; // Simple check for now, can extend for specific role guards
-};
-
-export const hasPermission = (permission) => {
-    const user = getCurrentUser();
-    if (!user) return false;
-
-    if (user.role === 'admin') return true;
-
-    // Operator permissions
-    if (user.role === 'operator') {
-        const allowed = ['orders:read', 'orders:update', 'tracking:read'];
-        return allowed.includes(permission);
-    }
-
-    return false;
-};
-
-import { updateUser } from '../mock_data/data.js';
 
 export const updateCurrentUser = (updates) => {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return { success: false, message: 'No active session' };
+    const current = getCurrentUser();
+    if (current) {
+        const updated = { ...current, ...updates };
+        localStorage.setItem('lunatico_session_v1', JSON.stringify(updated));
+    }
+};
 
-    // Update in DB
-    updateUser(currentUser.id, updates);
+export const requireAuth = () => {
+    const user = getCurrentUser();
+    if (!user) {
+        window.location.href = '/';
+        return null;
+    }
+    return user;
+};
 
-    // Update in Session
-    const updatedUser = { ...currentUser, ...updates };
-    // Remove password from session if it was part of updates (though it shouldn't be stored in session anyway)
-    if (updatedUser.password) delete updatedUser.password;
-
-    localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
-
-    return { success: true, user: updatedUser };
+export const isAdmin = () => {
+    const user = getCurrentUser();
+    return user?.role === 'admin';
 };

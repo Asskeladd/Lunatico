@@ -1,140 +1,173 @@
-import { addUser, getUsers } from '../mock_data/data.js';
-import { getCurrentUser } from '../utils/auth.js';
+import { authApi } from '../utils/api.js';
+import { isAdmin } from '../utils/auth.js';
 
 export const renderOperators = () => {
     const container = document.createElement('div');
-    const user = getCurrentUser();
-    const isAdmin = user && user.role === 'admin';
+    let operators = [];
 
-    if (!isAdmin) {
-        container.innerHTML = `
-            <div class="card">
-                <h2 style="font-weight: 600; margin-bottom: 0.5rem;">Acceso restringido</h2>
-                <p style="color: var(--text-muted);">Solo el administrador puede gestionar operadores.</p>
-            </div>
-        `;
-        return container;
-    }
-
-    const getOperators = () => (getUsers() || []).filter(u => u.role === 'operator');
-
-    const renderList = () => {
-        const operators = getOperators();
+    const renderContent = () => {
         return `
-            <div class="card" style="margin-top: 1.5rem;">
-                <div style="display:flex; justify-content: space-between; align-items: baseline; gap: 1rem;">
-                    <h2 style="font-weight: 600;">Operadores registrados</h2>
-                    <span style="color: var(--text-muted); font-size: 0.875rem;">Total: <strong>${operators.length}</strong></span>
+            <div class="fade-in">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
+                    <div>
+                        <h2>Gestión de Operarios</h2>
+                        <p style="color: var(--text-muted); font-size: 0.875rem;">Administración de usuarios del sistema</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="window.showOperatorForm()">
+                        + Nuevo Operario
+                    </button>
                 </div>
-                <div style="overflow:auto; margin-top: 1rem;">
-                    <table style="width: 100%; border-collapse: collapse; min-width: 520px;">
-                        <thead>
-                            <tr style="text-align: left; border-bottom: 1px solid var(--border-light);">
-                                <th style="padding: 0.75rem; color: var(--text-muted); font-weight: 500;">ID</th>
-                                <th style="padding: 0.75rem; color: var(--text-muted); font-weight: 500;">Nombre</th>
-                                <th style="padding: 0.75rem; color: var(--text-muted); font-weight: 500;">Usuario</th>
-                                <th style="padding: 0.75rem; color: var(--text-muted); font-weight: 500;">Rol</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${operators.map(op => `
-                                <tr style="border-bottom: 1px solid var(--border-light);">
-                                    <td style="padding: 0.75rem;">${op.id || '-'}</td>
-                                    <td style="padding: 0.75rem;"><strong>${op.name || '-'}</strong></td>
-                                    <td style="padding: 0.75rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${op.username}</td>
-                                    <td style="padding: 0.75rem; color: var(--text-muted);">${op.role}</td>
+
+                <div class="ui-card">
+                    ${operators.length === 0 ? `
+                        <div style="text-align: center; padding: var(--space-xl); color: var(--text-muted);">
+                            <p>No hay operarios registrados</p>
+                        </div>
+                    ` : `
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>Usuario</th>
+                                    <th>Especialidad</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                ${operators.map(op => `
+                                    <tr>
+                                        <td><strong>#${op.id_operario}</strong></td>
+                                        <td>${op.nombre}</td>
+                                        <td>${op.username}</td>
+                                        <td>${op.especialidad || '-'}</td>
+                                        <td>
+                                            <span class="badge badge--${op.role === 'admin' ? 'danger' : 'info'}">
+                                                ${op.role === 'admin' ? 'Administrador' : 'Operador'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge--${op.activo ? 'success' : 'danger'}">
+                                                ${op.activo ? 'Activo' : 'Inactivo'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `}
+                </div>
+
+                <!-- Modal Form -->
+                <div id="operator-modal" class="modal-backdrop" style="display: none;">
+                    <div class="modal" onclick="event.stopPropagation()">
+                        <div class="modal__header">
+                            <h3 class="modal__title">Nuevo Operario</h3>
+                            <button class="modal__close" onclick="window.hideOperatorForm()">×</button>
+                        </div>
+                        
+                        <form id="operator-form">
+                            <div class="form-group">
+                                <label class="form-label">Nombre Completo *</label>
+                                <input type="text" class="form-input" name="nombre" required />
+                            </div>
+                            
+                            <div class="grid grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Usuario *</label>
+                                    <input type="text" class="form-input" name="username" required />
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Contraseña *</label>
+                                    <input type="password" class="form-input" name="password" required />
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Especialidad</label>
+                                    <input type="text" class="form-input" name="especialidad" placeholder="Ej: Torneado, Fresado" />
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Rol *</label>
+                                    <select class="form-select" name="role" required>
+                                        <option value="operator">Operador</option>
+                                        <option value="admin">Administrador</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
+                                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                    Crear Operario
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="window.hideOperatorForm()">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         `;
     };
 
-    container.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <h1 style="font-size: 1.5rem; font-weight: 600;">Gestión de Operadores</h1>
-        </div>
+    const loadOperators = async () => {
+        container.innerHTML = '<div style="padding: var(--space-xl); text-align: center;"><p>Cargando operarios...</p></div>';
 
-        <div class="card">
-            <h2 style="font-weight: 600; margin-bottom: 1rem;">Registrar nuevo operador</h2>
-            <form id="operator-form" style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 0.75rem; align-items: end;">
-                <div style="grid-column: span 4; display:flex; flex-direction: column; gap: 0.25rem;">
-                    <label style="font-size: 0.75rem; color: var(--text-muted);">Nombre</label>
-                    <input name="name" required style="padding: 0.6rem 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);" />
-                </div>
-                <div style="grid-column: span 4; display:flex; flex-direction: column; gap: 0.25rem;">
-                    <label style="font-size: 0.75rem; color: var(--text-muted);">Usuario</label>
-                    <input name="username" required style="padding: 0.6rem 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);" />
-                </div>
-                <div style="grid-column: span 4; display:flex; flex-direction: column; gap: 0.25rem;">
-                    <label style="font-size: 0.75rem; color: var(--text-muted);">Contraseña</label>
-                    <input name="password" type="password" required style="padding: 0.6rem 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm);" />
-                </div>
-                <div style="grid-column: span 12; display:flex; justify-content: flex-end;">
-                    <button type="submit" class="btn btn-primary">Registrar</button>
-                </div>
-            </form>
-            <p id="operator-error" style="display:none; margin-top: 0.75rem; color: var(--color-danger); font-size: 0.875rem;"></p>
-        </div>
+        try {
+            // Note: Backend doesn't have operarios.getAll endpoint yet
+            // This is a placeholder - you'll need to add it to backend
+            operators = [
+                { id_operario: 1, nombre: 'Admin User', username: 'admin', especialidad: 'Gestión', role: 'admin', activo: true },
+                { id_operario: 2, nombre: 'Operator User', username: 'operator', especialidad: 'Torneado', role: 'operator', activo: true }
+            ];
 
-        <div id="operators-list">
-            ${renderList()}
-        </div>
-    `;
-
-    const form = container.querySelector('#operator-form');
-    const errorEl = container.querySelector('#operator-error');
-
-    const setError = (msg) => {
-        if (!errorEl) return;
-        if (!msg) {
-            errorEl.textContent = '';
-            errorEl.style.display = 'none';
-            return;
+            container.innerHTML = renderContent();
+            setupEventListeners();
+        } catch (error) {
+            container.innerHTML = '<div style="padding: var(--space-xl); text-align: center; color: var(--color-danger);">Error al cargar operarios</div>';
         }
-        errorEl.textContent = msg;
-        errorEl.style.display = 'block';
     };
 
-    if (form) {
-        form.addEventListener('submit', (e) => {
+    const setupEventListeners = () => {
+        const form = container.querySelector('#operator-form');
+        const modal = container.querySelector('#operator-modal');
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            setError('');
 
             const formData = new FormData(form);
-            const name = String(formData.get('name') || '').trim();
-            const username = String(formData.get('username') || '').trim();
-            const password = String(formData.get('password') || '').trim();
 
-            if (!name || !username || !password) {
-                setError('Completa todos los campos.');
-                return;
-            }
-
-            const existing = getUsers() || [];
-            const duplicated = existing.some(u => String(u.username).toLowerCase() === username.toLowerCase());
-            if (duplicated) {
-                setError(`El usuario "${username}" ya existe.`);
-                return;
-            }
-
-            const newUser = {
-                id: `u${Math.floor(Math.random() * 100000)}`,
-                username,
-                password,
-                name,
-                role: 'operator'
-            };
-
-            addUser(newUser);
-
+            // Note: This would need a proper API endpoint
+            alert('Funcionalidad de crear operarios requiere endpoint backend adicional');
+            modal.style.display = 'none';
             form.reset();
-            const list = container.querySelector('#operators-list');
-            if (list) list.innerHTML = renderList();
         });
-    }
+    };
 
+    // Global functions
+    window.showOperatorForm = () => {
+        const modal = container.querySelector('#operator-modal');
+        const form = container.querySelector('#operator-form');
+        form.reset();
+        modal.style.display = 'flex';
+    };
+
+    window.hideOperatorForm = () => {
+        const modal = container.querySelector('#operator-modal');
+        modal.style.display = 'none';
+    };
+
+    loadOperators();
     return container;
 };

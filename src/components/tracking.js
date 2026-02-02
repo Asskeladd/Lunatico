@@ -1,196 +1,276 @@
-import { getMachines, updateMachine, addMachine } from '../mock_data/data.js';
-import { getCurrentUser } from '../utils/auth.js';
+import { machinesApi } from '../utils/api.js';
+import { getCurrentUser, isAdmin } from '../utils/auth.js';
 
 export const renderTracking = () => {
-    const machines = getMachines();
-    const user = getCurrentUser();
-    const isOperator = user && user.role === 'operator';
-    const isAdmin = user && user.role === 'admin';
     const container = document.createElement('div');
-    container.className = 'tracking-view';
+    const user = getCurrentUser();
+    let machines = [];
+    let editingId = null;
 
-    const renderMachines = () => {
-        const currentMachines = getMachines();
-        // Remove 'Detenido' from view as requested
-        const validMachines = currentMachines.filter(m => m.status !== 'Detenido');
+    const renderContent = () => {
+        const statusColors = {
+            'Operando': 'success',
+            'Mantenimiento': 'warning',
+            'Inactivo': 'danger'
+        };
 
-        return validMachines.map(m => `
-            <div class="card machine-card" style="border-left: 5px solid ${m.status === 'Operando' ? 'var(--color-success)' : m.status === 'Inactivo' ? 'var(--color-warning)' : 'var(--color-danger)'}">
-                <div class="machine-card__header">
-                    <h3 class="machine-card__title">${m.name}</h3>
-                    <span class="machine-card__id">${m.id}</span>
-                </div>
-                <div class="machine-card__meta">
-                    <div class="machine-card__row">
-                        <span class="machine-card__label">Estado:</span>
-                        <strong class="machine-card__status" style="color: ${m.status === 'Operando' ? 'var(--color-success)' : m.status === 'Inactivo' ? 'var(--color-warning)' : 'var(--color-danger)'}">${m.status}</strong>
+        return `
+            <div class="fade-in">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
+                    <div>
+                        <h2>Seguimiento de Máquinas</h2>
+                        <p style="color: var(--text-muted); font-size: 0.875rem;">Monitoreo en tiempo real del estado de las máquinas</p>
                     </div>
-                    <div class="machine-card__row">
-                        <span class="machine-card__label">Operador:</span>
-                        <span class="machine-card__value">${m.operator || '-'}</span>
-                    </div>
+                    ${isAdmin() ? `
+                        <button class="btn btn-primary" onclick="window.showMachineForm()">
+                            + Nueva Máquina
+                        </button>
+                    ` : ''}
                 </div>
-                
-                ${isAdmin ? `
-                <div class="machine-card__section">
-                    <p class="machine-card__section-title">Editar Torno</p>
-                    <form class="edit-machine-form form-grid" data-id="${m.id}">
-                        <div class="form-field">
-                            <label class="form-label">Nombre</label>
-                            <input class="form-input" name="name" value="${String(m.name).replaceAll('"', '&quot;')}" required />
-                        </div>
-                        <div class="form-field">
-                            <label class="form-label">Estado</label>
-                            <select class="form-input" name="status">
-                                <option value="Operando" ${m.status === 'Operando' ? 'selected' : ''}>Operando</option>
-                                <option value="Inactivo" ${m.status === 'Inactivo' ? 'selected' : ''}>Inactivo</option>
-                                <option value="Mantenimiento" ${m.status === 'Mantenimiento' ? 'selected' : ''}>Mantenimiento</option>
-                            </select>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">Guardar</button>
-                        </div>
-                    </form>
-                </div>
-                ` : ''}
 
-                ${isOperator ? `
-                <div class="machine-card__section">
-                    <p class="machine-card__section-title">Cambiar Estado</p>
-                    <div class="status-actions">
-                        <button class="btn-status" data-id="${m.id}" data-status="Operando" style="background: var(--color-success); color: white; opacity: ${m.status === 'Operando' ? '1' : '0.5'};">Operando</button>
-                        <button class="btn-status" data-id="${m.id}" data-status="Inactivo" style="background: var(--color-warning); color: black; opacity: ${m.status === 'Inactivo' ? '1' : '0.5'};">Inactivo</button>
-                        <button class="btn-status" data-id="${m.id}" data-status="Mantenimiento" style="background: var(--color-danger); color: white; opacity: ${m.status === 'Mantenimiento' ? '1' : '0.5'};">Mant.</button>
+                <!-- Stats Cards -->
+                <div class="grid grid-4" style="margin-bottom: var(--space-xl);">
+                    <div class="kpi-card" style="background: var(--gradient-success, var(--color-success));">
+                        <h3>Operando</h3>
+                        <p class="kpi-value">${machines.filter(m => m.estado === 'Operando').length}</p>
+                    </div>
+                    <div class="kpi-card" style="background: var(--gradient-warning, var(--color-warning));">
+                        <h3>Mantenimiento</h3>
+                        <p class="kpi-value">${machines.filter(m => m.estado === 'Mantenimiento').length}</p>
+                    </div>
+                    <div class="kpi-card" style="background: var(--gradient-blue);">
+                        <h3>Inactivo</h3>
+                        <p class="kpi-value">${machines.filter(m => m.estado === 'Inactivo').length}</p>
+                    </div>
+                    <div class="kpi-card" style="background: var(--gradient-purple);">
+                        <h3>Total Máquinas</h3>
+                        <p class="kpi-value">${machines.length}</p>
                     </div>
                 </div>
-                ` : ''}
+
+                <div class="grid grid-3">
+                    ${machines.map(machine => `
+                        <div class="ui-card" style="position: relative;">
+                            <div style="position: absolute; top: var(--space-md); right: var(--space-md);">
+                                <span class="badge badge--${statusColors[machine.estado] || 'info'}" style="font-size: 0.75rem;">
+                                    ${machine.estado}
+                                </span>
+                            </div>
+                            
+                            <h3 style="margin-bottom: var(--space-sm);">${machine.nombre}</h3>
+                            <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: var(--space-md);">
+                                ${machine.tipo || 'Tipo no especificado'}
+                            </p>
+                            
+                            ${machine.operator ? `
+                                <div style="display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); font-size: 0.875rem;">
+                                    <span style="color: var(--text-muted);">Operador:</span>
+                                    <strong>${machine.operator}</strong>
+                                </div>
+                            ` : ''}
+                            
+                            ${machine.currentJob ? `
+                                <div style="display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md); font-size: 0.875rem;">
+                                    <span style="color: var(--text-muted);">Trabajo:</span>
+                                    <strong>${machine.currentJob}</strong>
+                                </div>
+                            ` : ''}
+                            
+                            ${machine.efficiency ? `
+                                <div style="margin-top: var(--space-md);">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: var(--space-xs); font-size: 0.75rem;">
+                                        <span style="color: var(--text-muted);">Eficiencia</span>
+                                        <strong>${machine.efficiency}%</strong>
+                                    </div>
+                                    <div style="height: 6px; background: var(--border-light); border-radius: var(--radius-full); overflow: hidden;">
+                                        <div style="width: ${machine.efficiency}%; height: 100%; background: var(--gradient-pink);"></div>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-lg);">
+                                <button class="btn btn-sm btn-secondary" onclick="window.editMachine(${machine.id_maquina})" style="flex: 1;">
+                                    Editar
+                                </button>
+                                ${isAdmin() ? `
+                                    <button class="btn btn-sm" style="background: var(--color-danger); color: white;" onclick="window.deleteMachine(${machine.id_maquina}, '${machine.nombre}')">
+                                        Eliminar
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <!-- Modal Form -->
+                <div id="machine-modal" class="modal-backdrop" style="display: none;">
+                    <div class="modal" onclick="event.stopPropagation()">
+                        <div class="modal__header">
+                            <h3 class="modal__title">${editingId ? 'Editar' : 'Nueva'} Máquina</h3>
+                            <button class="modal__close" onclick="window.hideMachineForm()">×</button>
+                        </div>
+                        
+                        <form id="machine-form">
+                            <div class="grid grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Nombre *</label>
+                                    <input type="text" class="form-input" name="nombre" required />
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Tipo</label>
+                                    <input type="text" class="form-input" name="tipo" placeholder="CNC, Manual, etc." />
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Estado</label>
+                                    <select class="form-select" name="estado">
+                                        <option value="Inactivo">Inactivo</option>
+                                        <option value="Operando">Operando</option>
+                                        <option value="Mantenimiento">Mantenimiento</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Eficiencia (%)</label>
+                                    <input type="number" class="form-input" name="efficiency" min="0" max="100" value="0" />
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Operador</label>
+                                    <input type="text" class="form-input" name="operator" />
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Trabajo Actual</label>
+                                    <input type="text" class="form-input" name="currentJob" />
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
+                                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                    ${editingId ? 'Actualizar' : 'Crear'}
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="window.hideMachineForm()">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
-        `).join('');
+        `;
     };
 
-    container.innerHTML = `
-      <h1 class="tracking-title">Seguimiento en Tiempo Real</h1>
-      ${isAdmin ? `
-        <div class="card tracking-admin-card">
-          <div class="tracking-admin-card__header">
-            <h3 class="tracking-admin-card__title">Agregar nuevo torno</h3>
-          </div>
-          <form id="add-machine-form" class="form-grid">
-            <div class="form-field">
-              <label for="machine-id" class="form-label">ID</label>
-              <input id="machine-id" class="form-input" name="id" placeholder="M-06" required />
-            </div>
-            <div class="form-field">
-              <label for="machine-name" class="form-label">Nombre</label>
-              <input id="machine-name" class="form-input" name="name" placeholder="Torno CNC 2" required />
-            </div>
-            <div class="form-field">
-              <label for="machine-status" class="form-label">Estado</label>
-              <select id="machine-status" class="form-input" name="status">
-                <option value="Operando">Operando</option>
-                <option value="Inactivo">Inactivo</option>
-                <option value="Mantenimiento">Mantenimiento</option>
-              </select>
-            </div>
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary">Agregar</button>
-            </div>
-          </form>
-          <p id="add-machine-error" class="form-error" style="display:none;"></p>
-        </div>
-      ` : ''}
-      <div id="machines-grid" class="machines-grid">
-        ${renderMachines()}
-      </div>
-    `;
+    const loadMachines = async () => {
+        container.innerHTML = '<div style="padding: var(--space-xl); text-align: center;"><p>Cargando máquinas...</p></div>';
 
-    // Event listener for status buttons
-    container.addEventListener('click', (e) => {
-        if (e.target.classList.contains('btn-status')) {
-            const id = e.target.dataset.id;
-            const newStatus = e.target.dataset.status;
-
-            // Optimistic update
-            updateMachine(id, { status: newStatus });
-
-            // Re-render
-            const grid = container.querySelector('#machines-grid');
-            if (grid) grid.innerHTML = renderMachines();
+        try {
+            machines = await machinesApi.getAll();
+            container.innerHTML = renderContent();
+            setupEventListeners();
+        } catch (error) {
+            container.innerHTML = '<div style="padding: var(--space-xl); text-align: center; color: var(--color-danger);">Error al cargar máquinas</div>';
         }
-    });
+    };
 
-    container.addEventListener('submit', (e) => {
-        const form = e.target.closest('.edit-machine-form');
-        if (!form) return;
+    const setupEventListeners = () => {
+        const form = container.querySelector('#machine-form');
+        const modal = container.querySelector('#machine-modal');
 
-        e.preventDefault();
-        const id = form.dataset.id;
-        const formData = new FormData(form);
-        const name = String(formData.get('name') || '').trim();
-        const status = String(formData.get('status') || '').trim();
+        if (!form || !modal) return;
 
-        if (!id || !name || !status) return;
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                editingId = null;
+            }
+        });
 
-        updateMachine(id, { name, status });
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-        const grid = container.querySelector('#machines-grid');
-        if (grid) grid.innerHTML = renderMachines();
-    });
+            const formData = new FormData(form);
+            const data = {
+                nombre: formData.get('nombre'),
+                tipo: formData.get('tipo') || null,
+                estado: formData.get('estado'),
+                operator: formData.get('operator') || null,
+                currentJob: formData.get('currentJob') || null,
+                efficiency: parseInt(formData.get('efficiency')) || 0
+            };
 
-    if (isAdmin) {
-        const form = container.querySelector('#add-machine-form');
-        const errorEl = container.querySelector('#add-machine-error');
-
-        if (form) {
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-
-                if (errorEl) {
-                    errorEl.style.display = 'none';
-                    errorEl.textContent = '';
+            try {
+                if (editingId) {
+                    await machinesApi.update(editingId, data);
+                } else {
+                    await machinesApi.create(data);
                 }
 
-                const formData = new FormData(form);
-                const id = String(formData.get('id') || '').trim();
-                const name = String(formData.get('name') || '').trim();
-                const status = String(formData.get('status') || 'Inactivo').trim();
-
-                if (!id || !name) {
-                    if (errorEl) {
-                        errorEl.textContent = 'Completa ID y Nombre.';
-                        errorEl.style.display = 'block';
-                    }
-                    return;
-                }
-
-                const existing = getMachines();
-                const duplicated = existing.some(m => String(m.id).toLowerCase() === id.toLowerCase());
-                if (duplicated) {
-                    if (errorEl) {
-                        errorEl.textContent = `Ya existe una máquina con ID ${id}.`;
-                        errorEl.style.display = 'block';
-                    }
-                    return;
-                }
-
-                addMachine({
-                    id,
-                    name,
-                    status,
-                    operator: null,
-                    currentJob: null,
-                    efficiency: 0
-                });
-
+                modal.style.display = 'none';
+                editingId = null;
                 form.reset();
-                const statusSelect = form.querySelector('#machine-status');
-                if (statusSelect) statusSelect.value = 'Operando';
+                await loadMachines();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+    };
 
-                const grid = container.querySelector('#machines-grid');
-                if (grid) grid.innerHTML = renderMachines();
-            });
+    // Global functions
+    window.showMachineForm = () => {
+        editingId = null;
+        container.innerHTML = renderContent();
+        setupEventListeners();
+        const modal = container.querySelector('#machine-modal');
+        const form = container.querySelector('#machine-form');
+        form.reset();
+        modal.style.display = 'flex';
+    };
+
+    window.hideMachineForm = () => {
+        const modal = container.querySelector('#machine-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            editingId = null;
         }
-    }
+    };
 
+    window.editMachine = async (id) => {
+        const machine = machines.find(m => m.id_maquina === id);
+        if (!machine) return;
+
+        editingId = id;
+        container.innerHTML = renderContent();
+        setupEventListeners();
+
+        const form = container.querySelector('#machine-form');
+        form.nombre.value = machine.nombre;
+        form.tipo.value = machine.tipo || '';
+        form.estado.value = machine.estado;
+        form.operator.value = machine.operator || '';
+        form.currentJob.value = machine.currentJob || '';
+        form.efficiency.value = machine.efficiency || 0;
+
+        const modal = container.querySelector('#machine-modal');
+        modal.style.display = 'flex';
+    };
+
+    window.deleteMachine = async (id, nombre) => {
+        if (!confirm(`¿Eliminar máquina "${nombre}"?`)) return;
+
+        try {
+            await machinesApi.delete(id);
+            await loadMachines();
+        } catch (error) {
+            alert('Error al eliminar: ' + error.message);
+        }
+    };
+
+    loadMachines();
     return container;
 };

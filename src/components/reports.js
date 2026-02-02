@@ -1,67 +1,140 @@
-import { getReports } from '../mock_data/data.js';
+import { reportsApi } from '../utils/api.js';
 
 export const renderReports = () => {
-    const reports = getReports();
     const container = document.createElement('div');
-    const maxVal = Math.max(...reports.productivity.map(d => d.value));
+    let reports = [];
 
-    container.innerHTML = `
-        <h1 style="margin-bottom: 1.5rem; font-size: 1.5rem; font-weight: 600;">Reportes de Productividad</h1>
-        
-        <div class="card" style="padding: 2rem;">
-            <h3 style="font-weight: 600; margin-bottom: 2rem;">Producción Semanal</h3>
-            <div style="display: flex; align-items: flex-end; justify-content: space-around; height: 300px; padding-bottom: 1rem; border-bottom: 1px solid var(--border-light);">
-                ${reports.productivity.map(d => `
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; width: 40px; height: 100%;">
-                        <div style="
-                            flex: 1; 
-                            width: 100%; 
-                            display: flex; 
-                            align-items: flex-end;
-                            position: relative;
-                        ">
-                             <div style="
-                                width: 100%; 
-                                height: ${(d.value / maxVal) * 100}%; 
-                                background: var(--color-accent-500); 
-                                border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-                                transition: height 0.3s ease;
-                             " title="${d.value}%">
-                             </div>
-                        </div>
-                        <span style="font-size: 0.875rem; color: var(--text-muted);">${d.day}</span>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-
-        <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-            <div class="card">
-                <h3 style="font-weight: 600; margin-bottom: 1rem;">Métricas Clave</h3>
-                <ul style="display: flex; flex-direction: column; gap: 1rem;">
-                    <li style="display: flex; justify-content: space-between; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light);">
-                        <span style="color: var(--text-muted);">Producción Total</span>
-                        <strong>450 unidades</strong>
-                    </li>
-                    <li style="display: flex; justify-content: space-between; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light);">
-                        <span style="color: var(--text-muted);">Tasa de Defectos</span>
-                        <strong style="color: var(--color-danger);">1.2%</strong>
-                    </li>
-                    <li style="display: flex; justify-content: space-between; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-light);">
-                        <span style="color: var(--text-muted);">Entregas a Tiempo</span>
-                        <strong style="color: var(--color-success);">98%</strong>
-                    </li>
-                </ul>
-            </div>
-            <div class="card" style="display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; gap: 1rem;">
-                <div style="width: 64px; height: 64px; background: var(--color-accent-100); color: var(--color-accent-600); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    const renderContent = () => {
+        return `
+            <div class="fade-in">
+                <div style="margin-bottom: var(--space-xl);">
+                    <h2>Reportes de Productividad</h2>
+                    <p style="color: var(--text-muted); font-size: 0.875rem;">Análisis de rendimiento y métricas</p>
                 </div>
-                <h3 style="font-weight: 600;">Descargar Reporte</h3>
-                <p style="color: var(--text-muted); font-size: 0.875rem;">Obtenga análisis detallados en formato PDF.</p>
-                <button class="btn btn-primary">Descargar PDF</button>
+
+                <!-- Chart Container -->
+                <div class="ui-card" style="margin-bottom: var(--space-xl);">
+                    <h3 style="margin-bottom: var(--space-lg);">Productividad Mensual</h3>
+                    <canvas id="productivity-chart" height="300"></canvas>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-3" style="margin-bottom: var(--space-xl);">
+                    <div class="kpi-card" style="background: var(--gradient-pink);">
+                        <h3>Total Piezas</h3>
+                        <p class="kpi-value">${reports.reduce((sum, r) => sum + (r.total_piezas || 0), 0)}</p>
+                    </div>
+                    <div class="kpi-card" style="background: var(--gradient-blue);">
+                        <h3>Total Horas</h3>
+                        <p class="kpi-value">${reports.reduce((sum, r) => sum + (r.total_horas || 0), 0).toFixed(1)}</p>
+                    </div>
+                    <div class="kpi-card" style="background: var(--gradient-orange);">
+                        <h3>Materiales Usados</h3>
+                        <p class="kpi-value">${reports.reduce((sum, r) => sum + (r.total_materiales_utilizados || 0), 0)}</p>
+                    </div>
+                </div>
+
+                <!-- Reports Table -->
+                <div class="ui-card">
+                    <h3 style="margin-bottom: var(--space-lg);">Reportes Mensuales</h3>
+                    ${reports.length === 0 ? `
+                        <div style="text-align: center; padding: var(--space-xl); color: var(--text-muted);">
+                            <p>No hay reportes disponibles</p>
+                        </div>
+                    ` : `
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Mes</th>
+                                    <th>Año</th>
+                                    <th>Total Piezas</th>
+                                    <th>Total Horas</th>
+                                    <th>Materiales</th>
+                                    <th>Fecha Generación</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${reports.map(report => `
+                                    <tr>
+                                        <td><strong>${report.mes}</strong></td>
+                                        <td>${report.anio}</td>
+                                        <td>${report.total_piezas}</td>
+                                        <td>${report.total_horas?.toFixed(2) || 0}</td>
+                                        <td>${report.total_materiales_utilizados}</td>
+                                        <td>${report.fecha_generacion ? new Date(report.fecha_generacion).toLocaleDateString() : '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `}
+                </div>
             </div>
-        </div>
-    `;
+        `;
+    };
+
+    const loadReports = async () => {
+        container.innerHTML = '<div style="padding: var(--space-xl); text-align: center;"><p>Cargando reportes...</p></div>';
+
+        try {
+            reports = await reportsApi.getAll();
+            container.innerHTML = renderContent();
+            initChart();
+        } catch (error) {
+            container.innerHTML = '<div style="padding: var(--space-xl); text-align: center; color: var(--color-danger);">Error al cargar reportes</div>';
+        }
+    };
+
+    const initChart = () => {
+        const ctx = container.querySelector('#productivity-chart');
+        if (!ctx || !window.Chart) return;
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: reports.map(r => `${r.mes} ${r.anio}`),
+                datasets: [
+                    {
+                        label: 'Piezas Producidas',
+                        data: reports.map(r => r.total_piezas),
+                        backgroundColor: 'rgba(233, 30, 99, 0.8)',
+                        borderColor: '#E91E63',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Horas Trabajadas',
+                        data: reports.map(r => r.total_horas),
+                        backgroundColor: 'rgba(3, 169, 244, 0.8)',
+                        borderColor: '#03A9F4',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0,0,0,0.05)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                }
+            }
+        });
+    };
+
+    loadReports();
     return container;
-}
+};
