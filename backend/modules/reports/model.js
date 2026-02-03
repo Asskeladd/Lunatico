@@ -28,5 +28,35 @@ module.exports = {
                 data.fecha_generacion || new Date().toISOString().split('T')[0]
             ]
         );
+    },
+
+    // Obtener estadísticas en tiempo real basadas en órdenes reales
+    getRealTimeStats: async () => {
+        const [orders] = await pool.execute('SELECT * FROM ordenes_trabajo');
+        const [machines] = await pool.execute('SELECT * FROM maquinas');
+
+        // Calcular totales
+        const totalPiezas = orders.reduce((sum, order) => sum + (parseInt(order.cantidad) || 0), 0);
+        const totalOrdenes = orders.length;
+        const ordenesCompletadas = orders.filter(o => o.estado === 'Completada').length;
+        const ordenesPendientes = orders.filter(o => o.estado === 'Pendiente').length;
+        const ordenesEnProgreso = orders.filter(o => o.estado === 'En Progreso').length;
+
+        // Estadísticas de máquinas
+        const maquinasActivas = machines.filter(m => m.estado === 'Activo').length;
+        const maquinasInactivas = machines.filter(m => m.estado === 'Inactivo').length;
+        const maquinasMantenimiento = machines.filter(m => m.estado === 'En Mantenimiento').length;
+
+        return {
+            totalPiezas,
+            totalOrdenes,
+            ordenesCompletadas,
+            ordenesPendientes,
+            ordenesEnProgreso,
+            maquinasActivas,
+            maquinasInactivas,
+            maquinasMantenimiento,
+            totalMaquinas: machines.length
+        };
     }
 };

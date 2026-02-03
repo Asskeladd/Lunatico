@@ -186,6 +186,44 @@ export const reportsApi = {
     getAll: async () => {
         const res = await apiFetch('/reports');
         return res.data || [];
+    },
+
+    getStats: async () => {
+        const res = await apiFetch('/reports/stats');
+        return res.data || {};
+    },
+
+    generatePDF: async (mes, anio) => {
+        const res = await apiFetch('/reports/generate-pdf', {
+            method: 'POST',
+            body: JSON.stringify({ mes, anio })
+        });
+        return res;
+    },
+
+    downloadPDF: async (filename) => {
+        const token = getToken();
+        const url = `${API_BASE_URL}/reports/download-pdf/${filename}`;
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al descargar PDF');
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
     }
 };
 

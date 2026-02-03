@@ -3,34 +3,41 @@ import { reportsApi } from '../utils/api.js';
 export const renderReports = () => {
     const container = document.createElement('div');
     let reports = [];
+    let stats = {};
+    let isGenerating = false;
 
     const renderContent = () => {
         return `
             <div class="fade-in">
-                <div style="margin-bottom: var(--space-xl);">
-                    <h2>Reportes de Productividad</h2>
-                    <p style="color: var(--text-muted); font-size: 0.875rem;">Análisis de rendimiento y métricas</p>
-                </div>
-
-                <!-- Chart Container -->
-                <div class="ui-card" style="margin-bottom: var(--space-xl);">
-                    <h3 style="margin-bottom: var(--space-lg);">Productividad Mensual</h3>
-                    <canvas id="productivity-chart" height="300"></canvas>
+                <div style="margin-bottom: var(--space-xl); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2>Reportes de Productividad</h2>
+                        <p style="color: var(--text-muted); font-size: 0.875rem;">Análisis de rendimiento y métricas</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="window.showPDFModal()" style="display: flex; align-items: center; gap: var(--space-sm);">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                        Generar PDF
+                    </button>
                 </div>
 
                 <!-- Stats Grid -->
                 <div class="grid grid-3" style="margin-bottom: var(--space-xl);">
                     <div class="kpi-card" style="background: var(--gradient-pink);">
                         <h3>Total Piezas</h3>
-                        <p class="kpi-value">${reports.reduce((sum, r) => sum + (r.total_piezas || 0), 0)}</p>
+                        <p class="kpi-value">${stats.totalPiezas || 0}</p>
+                        <small style="opacity: 0.8;">${stats.totalOrdenes || 0} órdenes totales</small>
                     </div>
                     <div class="kpi-card" style="background: var(--gradient-blue);">
-                        <h3>Total Horas</h3>
-                        <p class="kpi-value">${reports.reduce((sum, r) => sum + (r.total_horas || 0), 0).toFixed(1)}</p>
+                        <h3>Órdenes Completadas</h3>
+                        <p class="kpi-value">${stats.ordenesCompletadas || 0}</p>
+                        <small style="opacity: 0.8;">${stats.ordenesPendientes || 0} pendientes, ${stats.ordenesEnProgreso || 0} en progreso</small>
                     </div>
                     <div class="kpi-card" style="background: var(--gradient-orange);">
-                        <h3>Materiales Usados</h3>
-                        <p class="kpi-value">${reports.reduce((sum, r) => sum + (r.total_materiales_utilizados || 0), 0)}</p>
+                        <h3>Máquinas Activas</h3>
+                        <p class="kpi-value">${stats.maquinasActivas || 0}</p>
+                        <small style="opacity: 0.8;">${stats.totalMaquinas || 0} total (${stats.maquinasMantenimiento || 0} en mtto)</small>
                     </div>
                 </div>
 
@@ -59,7 +66,7 @@ export const renderReports = () => {
                                         <td><strong>${report.mes}</strong></td>
                                         <td>${report.anio}</td>
                                         <td>${report.total_piezas}</td>
-                                        <td>${report.total_horas?.toFixed(2) || 0}</td>
+                                        <td>${report.total_horas != null ? Number(report.total_horas).toFixed(2) : '0.00'}</td>
                                         <td>${report.total_materiales_utilizados}</td>
                                         <td>${report.fecha_generacion ? new Date(report.fecha_generacion).toLocaleDateString() : '-'}</td>
                                     </tr>
@@ -67,6 +74,52 @@ export const renderReports = () => {
                             </tbody>
                         </table>
                     `}
+                </div>
+
+                <!-- PDF Generation Modal -->
+                <div id="pdf-modal" class="modal-backdrop" style="display: none;">
+                    <div class="modal" onclick="event.stopPropagation()">
+                        <div class="modal__header">
+                            <h3 class="modal__title">🖨️ Generar Reporte PDF</h3>
+                            <button class="modal__close" onclick="window.hidePDFModal()">×</button>
+                        </div>
+                        
+                        <form id="pdf-form">
+                            <div class="grid grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Mes *</label>
+                                    <select class="form-select" name="mes" required>
+                                        <option value="1">Enero</option>
+                                        <option value="2">Febrero</option>
+                                        <option value="3">Marzo</option>
+                                        <option value="4">Abril</option>
+                                        <option value="5">Mayo</option>
+                                        <option value="6">Junio</option>
+                                        <option value="7">Julio</option>
+                                        <option value="8">Agosto</option>
+                                        <option value="9">Septiembre</option>
+                                        <option value="10">Octubre</option>
+                                        <option value="11">Noviembre</option>
+                                        <option value="12">Diciembre</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Año *</label>
+                                    <input type="number" class="form-input" name="anio" min="2020" max="2100" value="${new Date().getFullYear()}" required />
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
+                                <button type="submit" class="btn btn-primary" style="flex: 1;" id="generate-btn">
+                                    Generar y Descargar
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="window.hidePDFModal()">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         `;
@@ -77,62 +130,85 @@ export const renderReports = () => {
 
         try {
             reports = await reportsApi.getAll();
+            stats = await reportsApi.getStats();
             container.innerHTML = renderContent();
-            initChart();
+
+            setupPDFModal();
         } catch (error) {
-            container.innerHTML = '<div style="padding: var(--space-xl); text-align: center; color: var(--color-danger);">Error al cargar reportes</div>';
+            console.error('Error loading reports:', error);
+            container.innerHTML = '<div style="padding: var(--space-xl); text-align: center; color: var(--color-danger);">Error al cargar reportes: ' + error.message + '</div>';
         }
     };
 
-    const initChart = () => {
-        const ctx = container.querySelector('#productivity-chart');
-        if (!ctx || !window.Chart) return;
+    const setupPDFModal = () => {
+        const form = container.querySelector('#pdf-form');
+        const modal = container.querySelector('#pdf-modal');
+        const generateBtn = container.querySelector('#generate-btn');
 
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: reports.map(r => `${r.mes} ${r.anio}`),
-                datasets: [
-                    {
-                        label: 'Piezas Producidas',
-                        data: reports.map(r => r.total_piezas),
-                        backgroundColor: 'rgba(233, 30, 99, 0.8)',
-                        borderColor: '#E91E63',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Horas Trabajadas',
-                        data: reports.map(r => r.total_horas),
-                        backgroundColor: 'rgba(3, 169, 244, 0.8)',
-                        borderColor: '#03A9F4',
-                        borderWidth: 1
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0,0,0,0.05)'
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    }
-                }
+        if (!form || !modal) return;
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
             }
         });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (isGenerating) return;
+
+            const formData = new FormData(form);
+            const mes = parseInt(formData.get('mes'));
+            const anio = parseInt(formData.get('anio'));
+
+            try {
+                isGenerating = true;
+                generateBtn.disabled = true;
+                generateBtn.textContent = 'Generando PDF...';
+
+                const result = await reportsApi.generatePDF(mes, anio);
+
+                console.log('PDF Generation Result:', result);
+
+                if (result.success && result.filename) {
+                    // Descargar automáticamente
+                    await reportsApi.downloadPDF(result.filename);
+
+                    modal.style.display = 'none';
+                    form.reset();
+                    alert('✅ Reporte generado y descargado exitosamente');
+                } else {
+                    console.error('Invalid response format:', result);
+                    throw new Error(result.error || result.message || 'Error al generar reporte');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Error al generar PDF: ' + error.message);
+            } finally {
+                isGenerating = false;
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generar y Descargar';
+            }
+        });
+    };
+
+    window.showPDFModal = () => {
+        const modal = container.querySelector('#pdf-modal');
+        const form = container.querySelector('#pdf-form');
+        if (modal && form) {
+            // Set current month by default
+            const currentMonth = new Date().getMonth() + 1;
+            form.mes.value = currentMonth;
+            modal.style.display = 'flex';
+        }
+    };
+
+    window.hidePDFModal = () => {
+        const modal = container.querySelector('#pdf-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
     };
 
     loadReports();

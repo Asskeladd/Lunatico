@@ -210,7 +210,7 @@ export const renderTracking = () => {
                 // "Simple" approach: Only on creation.
                 estado: formData.get('estado'),
                 // Removed efficiency
-                tipo: null,
+                tipo: baseName,
                 operator: null,
                 currentJob: null,
                 efficiency: 0
