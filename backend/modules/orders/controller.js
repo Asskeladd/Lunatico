@@ -27,7 +27,7 @@ module.exports = {
 
     async create(req, res, next) {
         try {
-            const { id_cliente, tipo_pieza, cantidad, fecha_entrega, prioridad, description } = req.body;
+            const { id_cliente, tipo_pieza, cantidad, fecha_entrega, prioridad, description, assignedTo } = req.body;
 
             if (!id_cliente || !cantidad) {
                 return res.status(400).json({
@@ -42,7 +42,8 @@ module.exports = {
                 cantidad,
                 fecha_entrega,
                 prioridad,
-                description
+                description,
+                assignedTo
             });
 
             const [rows] = await model.getById(result.insertId);

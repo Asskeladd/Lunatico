@@ -254,6 +254,20 @@ export const usersApi = {
     delete: (id) => apiFetch(`/users/${id}`, { method: 'DELETE' })
 };
 
+// ============ NOTIFICATIONS API ============
+export const notificationsApi = {
+    getUnread: async () => {
+        const res = await apiFetch('/notifications');
+        return res.data || [];
+    },
+    markAsRead: async (id) => {
+        return apiFetch(`/notifications/${id}/read`, { method: 'PUT' });
+    },
+    markAllAsRead: async () => {
+        return apiFetch(`/notifications/read-all`, { method: 'PUT' });
+    }
+};
+
 // ============ TRACKING API (Public) ============
 export const trackingApi = {
     getOrder: async (orderId) => {

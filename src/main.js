@@ -57,12 +57,14 @@ if (!user) {
             <div class="topbar">
                 <h1 class="topbar__title" id="page-title">Panel Principal</h1>
                 <div class="topbar__actions">
-                    <div class="notification-badge">
-                        <span style="font-size: 1.25rem; display: flex;">${icons.bell}</span>
-                        <span class="notification-badge__count">3</span>
-                    </div>
-                    
-                    <div class="topbar__user" id="user-dropdown-trigger">
+                     ${user.role !== 'admin' ? `
+                     <div class="notification-badge">
+                         <span style="font-size: 1.25rem; display: flex;">${icons.bell}</span>
+                         <span class="notification-badge__count" style="display: none;">0</span>
+                     </div>
+                     ` : ''}
+                     
+                     <div class="topbar__user" id="user-dropdown-trigger">
                         <div>
                             <div class="topbar__user-name">${user.name}</div>
                             <div class="topbar__user-role">${user.role === 'admin' ? 'Administrador' : 'Operador'}</div>
@@ -93,6 +95,126 @@ if (!user) {
   // Update active nav item
   window.addEventListener('hashchange', updateActiveNav);
   updateActiveNav();
+
+  // Start notification polling
+  startNotificationPolling();
+}
+
+function startNotificationPolling() {
+  const user = getCurrentUser();
+  if (!user || user.role === 'admin') return;
+
+  const poll = async () => {
+    try {
+      const { notificationsApi } = await import('./utils/api.js');
+      const notifications = await notificationsApi.getUnread();
+      updateNotificationBadge(notifications);
+    } catch (error) {
+      console.error('Error polling notifications:', error);
+    }
+  };
+
+  // Initial poll
+  poll();
+
+  // Poll every 30 seconds
+  setInterval(poll, 30000);
+
+  // Setup Bell Click Listener
+  const bellContainer = document.querySelector('.notification-badge');
+  if (bellContainer) {
+    bellContainer.style.cursor = 'pointer';
+    bellContainer.addEventListener('click', () => showNotificationsModal());
+  }
+}
+
+function updateNotificationBadge(notifications) {
+  const badge = document.querySelector('.notification-badge__count');
+  if (!badge) return;
+
+  if (notifications.length > 0) {
+    badge.textContent = notifications.length;
+    badge.style.display = 'flex';
+    // Store notifications in window or closure for modal to use?
+    // Better to fetch again or store in a global if needed.
+    // For simplicity, we can refetch when opening modal.
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function showNotificationsModal() {
+  const { notificationsApi } = await import('./utils/api.js');
+  let notifications = [];
+  try {
+    notifications = await notificationsApi.getUnread();
+  } catch (e) { console.error(e); }
+
+  const modalId = 'notifications-modal';
+  let modal = document.getElementById(modalId);
+
+  // Create modal if not exists (similar to profile modal but simpler)
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = modalId;
+    modal.className = 'modal-backdrop';
+    modal.style.display = 'none';
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+  }
+
+  const renderList = () => {
+    if (notifications.length === 0) {
+      return '<div style="padding: var(--space-lg); text-align: center; color: var(--text-muted);">No tienes nuevas notificaciones</div>';
+    }
+    return `
+            <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
+                ${notifications.map(n => `
+                    <div style="padding: var(--space-md); background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 4px solid var(--color-primary);">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span style="font-weight: 600; font-size: 0.9rem;">${n.type === 'assignment' ? 'Nueva Asignación' : 'Notificación'}</span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">${new Date(n.created_at).toLocaleTimeString().slice(0, 5)}</span>
+                        </div>
+                        <p style="margin: 0; font-size: 0.95rem;">${n.message}</p>
+                    </div>
+                `).join('')}
+                
+                <button id="mark-read-btn" class="btn btn-sm btn-secondary" style="margin-top: var(--space-md); align-self: center;">
+                    Marcar todo como leído
+                </button>
+            </div>
+        `;
+  };
+
+  modal.innerHTML = `
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal__header">
+                <h3 class="modal__title">Notificaciones</h3>
+                <button class="modal__close" onclick="document.getElementById('${modalId}').style.display='none'">×</button>
+            </div>
+            <div class="modal__content" style="max-height: 60vh; overflow-y: auto;">
+                ${renderList()}
+            </div>
+        </div>
+    `;
+
+  modal.style.display = 'flex';
+
+  const markReadBtn = modal.querySelector('#mark-read-btn');
+  if (markReadBtn) {
+    markReadBtn.addEventListener('click', async () => {
+      try {
+        await notificationsApi.markAllAsRead();
+        modal.style.display = 'none';
+        updateNotificationBadge([]); // Clear badge
+      } catch (error) {
+        alert('Error al actualizar notificaciones');
+      }
+    });
+  }
 }
 
 function updateActiveNav() {
@@ -203,7 +325,7 @@ function showProfileModal(user, modal, avatar) {
     }
 
     try {
-      const { authApi } = await import('./utils/api.js');
+      const { authApi, notificationsApi } = await import('./utils/api.js');
       const { updateCurrentUser } = await import('./utils/auth.js');
 
       await authApi.updateProfile(updates);
