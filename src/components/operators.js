@@ -1,4 +1,4 @@
-import { authApi } from '../utils/api.js';
+import { authApi, usersApi } from '../utils/api.js';
 import { isAdmin } from '../utils/auth.js';
 
 export const renderOperators = () => {
@@ -53,7 +53,7 @@ export const renderOperators = () => {
                                         </td>
                                         <td>
                                             <div style="display: flex; gap: var(--space-sm);">
-                                                <button class="btn btn-sm btn-secondary" onclick="window.editOperator(${op.id_operario})">
+                                                <button class="btn btn-sm btn-secondary" onclick="window.editOperator('${op.id_operario}')">
                                                     Editar
                                                 </button>
                                             </div>
@@ -131,17 +131,27 @@ export const renderOperators = () => {
         container.innerHTML = '<div style="padding: var(--space-xl); text-align: center;"><p>Cargando operarios...</p></div>';
 
         try {
-            // Note: Backend doesn't have operarios.getAll endpoint yet
-            // This is a placeholder - you'll need to add it to backend
-            operators = [
-                { id_operario: 1, nombre: 'Admin User', username: 'admin', especialidad: 'Gestión', role: 'admin', activo: true },
-                { id_operario: 2, nombre: 'Operator User', username: 'operator', especialidad: 'Torneado', role: 'operator', activo: true }
-            ];
+            const data = await usersApi.getAll();
+            // Data is the array of users, need to filter or just show all if endpoint filters? 
+            // The endpoint returns all users. The UI shows 'role' so it handles admins and operators.
+            // Map backend fields to frontend expected fields if necessary.
+            // Backend: id, username, name, role, avatar, especialidad, activo, created_at
+            // Frontend table expects: id_operario, nombre, username, especialidad, role, activo
+
+            operators = data.map(u => ({
+                id_operario: u.id, // Backend uses string IDs, frontend template shows #id. 
+                nombre: u.name,
+                username: u.username,
+                especialidad: u.especialidad,
+                role: u.role,
+                activo: u.activo !== 0 && u.activo !== false // Handle 0/1 or boolean
+            }));
 
             container.innerHTML = renderContent();
             setupEventListeners();
         } catch (error) {
-            container.innerHTML = '<div style="padding: var(--space-xl); text-align: center; color: var(--color-danger);">Error al cargar operarios</div>';
+            console.error(error);
+            container.innerHTML = '<div style="padding: var(--space-xl); text-align: center; color: var(--color-danger);">Error al cargar operarios: ' + error.message + '</div>';
         }
     };
 
@@ -160,17 +170,36 @@ export const renderOperators = () => {
             e.preventDefault();
 
             const formData = new FormData(form);
+            const data = {
+                name: formData.get('nombre'),
+                username: formData.get('username'),
+                especialidad: formData.get('especialidad'),
+                role: formData.get('role')
+            };
 
-            if (editingId) {
-                alert(`Simulación: Operario #${editingId} actualizado (Backend pendiente)`);
-            } else {
-                alert('Simulación: Nuevo operario creado (Backend pendiente)');
+            const password = formData.get('password');
+            if (password) {
+                data.password = password;
             }
 
-            modal.style.display = 'none';
-            editingId = null;
-            form.reset();
-            loadOperators(); // Re-render to clear editingId from template
+            try {
+                if (editingId) {
+                    await usersApi.update(editingId, data);
+                    alert('Operario actualizado correctamente');
+                } else {
+                    // Default activo to true for new users if not in form
+                    data.activo = true;
+                    await usersApi.create(data);
+                    alert('Usuario creado correctamente');
+                }
+
+                modal.style.display = 'none';
+                editingId = null;
+                form.reset();
+                loadOperators();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
         });
     };
 
@@ -192,7 +221,14 @@ export const renderOperators = () => {
     };
 
     window.editOperator = (id) => {
-        const op = operators.find(o => o.id_operario === id);
+        // id is string from backend but mapped to id_operario
+        // In template we passed ${op.id_operario} which might be a string like "u12345". 
+        // JS function call in HTML needs quotes for strings: editOperator('${op.id_operario}')
+        // But the template in renderContent uses: onclick="window.editOperator(${op.id_operario})"
+        // If IDs are strings like "u123", this will fail (ReferenceError: u123 is not defined).
+        // I need to fix the template to quote the ID.
+
+        const op = operators.find(o => o.id_operario == id); // Use loose equality just in case
         if (!op) return;
 
         editingId = id;

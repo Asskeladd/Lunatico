@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { getAll, getById, create, update, remove } = require('../controllers/usersController');
-const { verifyToken, requireAdmin } = require('../middleware/auth');
+// Import from global controllers since we didn't move it
+const { getAll, getById, create, update, remove } = require('../../controllers/usersController');
+const { verifyToken, requireAdmin } = require('../../middleware/auth');
 
 // All routes require authentication
 router.use(verifyToken);

@@ -227,6 +227,33 @@ export const reportsApi = {
     }
 };
 
+// ============ USERS API ============
+export const usersApi = {
+    getAll: async () => {
+        const res = await apiFetch('/users');
+        return res || [];
+    },
+    getById: async (id) => {
+        const res = await apiFetch(`/users/${id}`);
+        return res;
+    },
+    create: async (user) => {
+        const res = await apiFetch('/users', {
+            method: 'POST',
+            body: JSON.stringify(user)
+        });
+        return res;
+    },
+    update: async (id, updates) => {
+        const res = await apiFetch(`/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+        return res;
+    },
+    delete: (id) => apiFetch(`/users/${id}`, { method: 'DELETE' })
+};
+
 // ============ TRACKING API (Public) ============
 export const trackingApi = {
     getOrder: async (orderId) => {

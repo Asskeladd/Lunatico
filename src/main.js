@@ -24,14 +24,14 @@ if (!user) {
   };
 
   const menuItems = [
-    { icon: icons.dashboard, label: 'Panel Principal', route: 'dashboard' },
-    { icon: icons.orders, label: 'Órdenes', route: 'orders' },
-    { icon: icons.clients, label: 'Clientes', route: 'clientes' },
-    { icon: icons.machines, label: 'Máquinas', route: 'tracking' },
-    { icon: icons.materials, label: 'Materiales', route: 'materiales' },
-    ...(user.role === 'admin' ? [{ icon: icons.operators, label: 'Operarios', route: 'operators' }] : []),
-    { icon: icons.reports, label: 'Reportes', route: 'reports' }
-  ];
+    { icon: icons.dashboard, label: 'Panel Principal', route: 'dashboard', roles: ['admin'] },
+    { icon: icons.orders, label: 'Órdenes', route: 'orders', roles: ['admin', 'operator'] },
+    { icon: icons.clients, label: 'Clientes', route: 'clientes', roles: ['admin'] },
+    { icon: icons.machines, label: 'Máquinas', route: 'tracking', roles: ['admin', 'operator'] },
+    { icon: icons.materials, label: 'Materiales', route: 'materiales', roles: ['admin', 'operator'] },
+    { icon: icons.operators, label: 'Operarios', route: 'operators', roles: ['admin'] },
+    { icon: icons.reports, label: 'Reportes', route: 'reports', roles: ['admin'] }
+  ].filter(item => item.roles.includes(user.role));
 
   document.querySelector('#app').innerHTML = `
         <!-- Sidebar -->

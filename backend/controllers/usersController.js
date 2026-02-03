@@ -5,7 +5,7 @@ const { pool } = require('../config/database');
 const getAll = async (req, res) => {
     try {
         const [rows] = await pool.execute(
-            'SELECT id, username, name, role, avatar, created_at FROM users ORDER BY created_at DESC'
+            'SELECT id_operario as id, username, nombre as name, role, avatar, especialidad, activo, created_at FROM operarios ORDER BY created_at DESC'
         );
         res.json(rows);
     } catch (error) {
@@ -18,7 +18,7 @@ const getAll = async (req, res) => {
 const getById = async (req, res) => {
     try {
         const [rows] = await pool.execute(
-            'SELECT id, username, name, role, avatar, created_at FROM users WHERE id = ?',
+            'SELECT id_operario as id, username, nombre as name, role, avatar, especialidad, activo, created_at FROM operarios WHERE id_operario = ?',
             [req.params.id]
         );
 
@@ -36,7 +36,7 @@ const getById = async (req, res) => {
 // Create user (register operator)
 const create = async (req, res) => {
     try {
-        const { username, password, name, role } = req.body;
+        const { username, password, name, role, especialidad, activo } = req.body;
 
         if (!username || !password || !name) {
             return res.status(400).json({
@@ -46,22 +46,22 @@ const create = async (req, res) => {
         }
 
         // Check for duplicate username
-        const [existing] = await pool.execute('SELECT id FROM users WHERE username = ?', [username]);
+        const [existing] = await pool.execute('SELECT id_operario FROM operarios WHERE username = ?', [username]);
         if (existing.length > 0) {
             return res.status(409).json({ success: false, message: `El usuario "${username}" ya existe` });
         }
 
-        const userId = `u${Math.floor(Math.random() * 100000)}`;
         const hashedPassword = await bcrypt.hash(password, 10);
+        const isActive = activo !== undefined ? activo : true;
 
-        await pool.execute(
-            `INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)`,
-            [userId, username, hashedPassword, name, role || 'operator']
+        const [result] = await pool.execute(
+            `INSERT INTO operarios (username, password, nombre, role, especialidad, activo) VALUES (?, ?, ?, ?, ?, ?)`,
+            [username, hashedPassword, name, role || 'operator', especialidad || null, isActive]
         );
 
         const [rows] = await pool.execute(
-            'SELECT id, username, name, role, created_at FROM users WHERE id = ?',
-            [userId]
+            'SELECT id_operario as id, username, nombre as name, role, especialidad, activo, created_at FROM operarios WHERE id_operario = ?',
+            [result.insertId]
         );
 
         res.status(201).json({
@@ -77,11 +77,11 @@ const create = async (req, res) => {
 // Update user
 const update = async (req, res) => {
     try {
-        const { username, password, name, role, avatar } = req.body;
+        const { username, password, name, role, avatar, especialidad, activo } = req.body;
         const userId = req.params.id;
 
         // Check if user exists
-        const [existing] = await pool.execute('SELECT * FROM users WHERE id = ?', [userId]);
+        const [existing] = await pool.execute('SELECT * FROM operarios WHERE id_operario = ?', [userId]);
         if (existing.length === 0) {
             return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         }
@@ -91,21 +91,23 @@ const update = async (req, res) => {
 
         if (username !== undefined) {
             // Check for duplicate username
-            const [dup] = await pool.execute('SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]);
+            const [dup] = await pool.execute('SELECT id_operario FROM operarios WHERE username = ? AND id_operario != ?', [username, userId]);
             if (dup.length > 0) {
                 return res.status(409).json({ success: false, message: `El usuario "${username}" ya existe` });
             }
             updates.push('username = ?');
             params.push(username);
         }
-        if (password !== undefined) {
+        if (password !== undefined && password !== '') {
             const hashedPassword = await bcrypt.hash(password, 10);
             updates.push('password = ?');
             params.push(hashedPassword);
         }
-        if (name !== undefined) { updates.push('name = ?'); params.push(name); }
+        if (name !== undefined) { updates.push('nombre = ?'); params.push(name); }
         if (role !== undefined) { updates.push('role = ?'); params.push(role); }
         if (avatar !== undefined) { updates.push('avatar = ?'); params.push(avatar); }
+        if (especialidad !== undefined) { updates.push('especialidad = ?'); params.push(especialidad); }
+        if (activo !== undefined) { updates.push('activo = ?'); params.push(activo); }
 
         if (updates.length === 0) {
             return res.status(400).json({ success: false, message: 'No hay datos para actualizar' });
@@ -114,12 +116,12 @@ const update = async (req, res) => {
         params.push(userId);
 
         await pool.execute(
-            `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+            `UPDATE operarios SET ${updates.join(', ')} WHERE id_operario = ?`,
             params
         );
 
         const [rows] = await pool.execute(
-            'SELECT id, username, name, role, avatar, created_at FROM users WHERE id = ?',
+            'SELECT id_operario as id, username, nombre as name, role, avatar, especialidad, activo, created_at FROM operarios WHERE id_operario = ?',
             [userId]
         );
 
@@ -136,7 +138,7 @@ const update = async (req, res) => {
 // Delete user
 const remove = async (req, res) => {
     try {
-        const [existing] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.params.id]);
+        const [existing] = await pool.execute('SELECT * FROM operarios WHERE id_operario = ?', [req.params.id]);
         if (existing.length === 0) {
             return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         }
@@ -146,7 +148,7 @@ const remove = async (req, res) => {
             return res.status(403).json({ success: false, message: 'No se puede eliminar un usuario administrador' });
         }
 
-        await pool.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
+        await pool.execute('DELETE FROM operarios WHERE id_operario = ?', [req.params.id]);
 
         res.json({ success: true, message: 'Usuario eliminado' });
     } catch (error) {
