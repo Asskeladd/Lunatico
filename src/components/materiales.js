@@ -9,11 +9,7 @@ export const renderMateriales = () => {
     const renderContent = () => {
         return `
             <div class="fade-in">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
-                    <div>
-                        <h2>Gestión de Materiales</h2>
-                        <p style="color: var(--text-muted); font-size: 0.875rem;">Control de inventario y materiales</p>
-                    </div>
+                <div style="display: flex; justify-content: flex-end; margin-bottom: var(--space-lg);">
                     ${isAdmin() ? `
                         <button class="btn btn-primary" onclick="window.showMaterialForm()">
                             + Nuevo Material
@@ -87,49 +83,49 @@ export const renderMateriales = () => {
                         </table>
                     `}
                 </div>
+            </div>
 
-                <!-- Modal Form -->
-                <div id="material-modal" class="modal-backdrop" style="display: none;">
-                    <div class="modal" onclick="event.stopPropagation()">
-                        <div class="modal__header">
-                            <h3 class="modal__title">${editingId ? 'Editar' : 'Nuevo'} Material</h3>
-                            <button class="modal__close" onclick="window.hideMaterialForm()">×</button>
+            <!-- Modal Form -->
+            <div id="material-modal" class="modal-backdrop" style="display: none;">
+                <div class="modal" onclick="event.stopPropagation()">
+                    <div class="modal__header">
+                        <h3 class="modal__title">${editingId ? 'Editar' : 'Nuevo'} Material</h3>
+                        <button class="modal__close" onclick="window.hideMaterialForm()">×</button>
+                    </div>
+                    
+                    <form id="material-form">
+                        <div class="form-group">
+                            <label class="form-label">Nombre del Material *</label>
+                            <input type="text" class="form-input" name="nombre" required />
                         </div>
                         
-                        <form id="material-form">
+                        <div class="grid grid-2">
                             <div class="form-group">
-                                <label class="form-label">Nombre del Material *</label>
-                                <input type="text" class="form-input" name="nombre" required />
+                                <label class="form-label">Unidad *</label>
+                                <select class="form-select" name="unidad" required>
+                                    <option value="">Seleccionar...</option>
+                                    <option value="kg">Kilogramos (kg)</option>
+                                    <option value="litros">Litros (L)</option>
+                                    <option value="unidades">Unidades</option>
+                                    <option value="metros">Metros (m)</option>
+                                </select>
                             </div>
                             
-                            <div class="grid grid-2">
-                                <div class="form-group">
-                                    <label class="form-label">Unidad *</label>
-                                    <select class="form-select" name="unidad" required>
-                                        <option value="">Seleccionar...</option>
-                                        <option value="kg">Kilogramos (kg)</option>
-                                        <option value="litros">Litros (L)</option>
-                                        <option value="unidades">Unidades</option>
-                                        <option value="metros">Metros (m)</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">Stock Actual *</label>
-                                    <input type="number" class="form-input" name="stock_actual" min="0" required />
-                                </div>
+                            <div class="form-group">
+                                <label class="form-label">Stock Actual *</label>
+                                <input type="number" class="form-input" name="stock_actual" min="0" required />
                             </div>
-                            
-                            <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
-                                <button type="submit" class="btn btn-primary" style="flex: 1;">
-                                    ${editingId ? 'Actualizar' : 'Crear'}
-                                </button>
-                                <button type="button" class="btn btn-secondary" onclick="window.hideMaterialForm()">
-                                    Cancelar
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
+                            <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                ${editingId ? 'Actualizar' : 'Crear'}
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="window.hideMaterialForm()">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         `;

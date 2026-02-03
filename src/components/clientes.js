@@ -9,11 +9,7 @@ export const renderClientes = () => {
     const renderContent = () => {
         return `
             <div class="fade-in">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
-                    <div>
-                        <h2>Gestión de Clientes</h2>
-                        <p style="color: var(--text-muted); font-size: 0.875rem;">Administra la base de datos de clientes</p>
-                    </div>
+                <div style="display: flex; justify-content: flex-end; margin-bottom: var(--space-lg);">
                     ${isAdmin() ? `
                         <button class="btn btn-primary" onclick="window.showClienteForm()">
                             + Nuevo Cliente
@@ -62,41 +58,51 @@ export const renderClientes = () => {
                         </table>
                     `}
                 </div>
+            </div>
 
-                <!-- Modal Form -->
-                <div id="cliente-modal" class="modal-backdrop" style="display: none;">
-                    <div class="modal" onclick="event.stopPropagation()">
-                        <div class="modal__header">
-                            <h3 class="modal__title">${editingId ? 'Editar' : 'Nuevo'} Cliente</h3>
-                            <button class="modal__close" onclick="window.hideClienteForm()">×</button>
+            <!-- Modal Form -->
+            <div id="cliente-modal" class="modal-backdrop" style="display: none;">
+                <div class="modal" onclick="event.stopPropagation()">
+                    <div class="modal__header">
+                        <h3 class="modal__title">${editingId ? 'Editar' : 'Nuevo'} Cliente</h3>
+                        <button class="modal__close" onclick="window.hideClienteForm()">×</button>
+                    </div>
+                    
+                    <form id="cliente-form">
+                        <div class="form-group">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" class="form-input" name="nombre" required />
                         </div>
                         
-                        <form id="cliente-form">
-                            <div class="form-group">
-                                <label class="form-label">Nombre *</label>
-                                <input type="text" class="form-input" name="nombre" required />
+                        <div class="form-group">
+                            <label class="form-label">Teléfono</label>
+                            <div style="display: flex; gap: var(--space-sm);">
+                                <select class="form-select" name="telefono_prefix" style="flex: 0 0 100px;">
+                                    <option value="0412">0412</option>
+                                    <option value="0414">0414</option>
+                                    <option value="0416">0416</option>
+                                    <option value="0422">0422</option>
+                                    <option value="0424">0424</option>
+                                    <option value="0426">0426</option>
+                                </select>
+                                <input type="tel" class="form-input" name="telefono_number" placeholder="1234567" maxlength="7" style="flex: 1;" />
                             </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Teléfono</label>
-                                <input type="tel" class="form-input" name="telefono" />
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-input" name="email" />
-                            </div>
-                            
-                            <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
-                                <button type="submit" class="btn btn-primary" style="flex: 1;">
-                                    ${editingId ? 'Actualizar' : 'Crear'}
-                                </button>
-                                <button type="button" class="btn btn-secondary" onclick="window.hideClienteForm()">
-                                    Cancelar
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-input" name="email" />
+                        </div>
+                        
+                        <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
+                            <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                ${editingId ? 'Actualizar' : 'Crear'}
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="window.hideClienteForm()">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         `;
@@ -127,9 +133,13 @@ export const renderClientes = () => {
             e.preventDefault();
 
             const formData = new FormData(form);
+            const telefonoPrefix = formData.get('telefono_prefix');
+            const telefonoNumber = formData.get('telefono_number');
+            const telefono = telefonoNumber ? `${telefonoPrefix}-${telefonoNumber}` : null;
+
             const data = {
                 nombre: formData.get('nombre'),
-                telefono: formData.get('telefono') || null,
+                telefono: telefono,
                 email: formData.get('email') || null
             };
 
@@ -172,7 +182,20 @@ export const renderClientes = () => {
 
             const form = container.querySelector('#cliente-form');
             form.nombre.value = cliente.nombre;
-            form.telefono.value = cliente.telefono || '';
+
+            // Split phone number if it exists
+            if (cliente.telefono) {
+                const phoneParts = cliente.telefono.split('-');
+                if (phoneParts.length === 2) {
+                    form.telefono_prefix.value = phoneParts[0];
+                    form.telefono_number.value = phoneParts[1];
+                } else {
+                    form.telefono_number.value = cliente.telefono;
+                }
+            } else {
+                form.telefono_number.value = '';
+            }
+
             form.email.value = cliente.email || '';
 
             const modal = container.querySelector('#cliente-modal');

@@ -4,15 +4,13 @@ import { isAdmin } from '../utils/auth.js';
 export const renderOperators = () => {
     const container = document.createElement('div');
     let operators = [];
+    let editingId = null;
 
     const renderContent = () => {
         return `
             <div class="fade-in">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl);">
-                    <div>
-                        <h2>Gestión de Operarios</h2>
-                        <p style="color: var(--text-muted); font-size: 0.875rem;">Administración de usuarios del sistema</p>
-                    </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-bottom: var(--space-lg);">
                     <button class="btn btn-primary" onclick="window.showOperatorForm()">
                         + Nuevo Operario
                     </button>
@@ -33,6 +31,7 @@ export const renderOperators = () => {
                                     <th>Especialidad</th>
                                     <th>Rol</th>
                                     <th>Estado</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -52,64 +51,77 @@ export const renderOperators = () => {
                                                 ${op.activo ? 'Activo' : 'Inactivo'}
                                             </span>
                                         </td>
+                                        <td>
+                                            <div style="display: flex; gap: var(--space-sm);">
+                                                <button class="btn btn-sm btn-secondary" onclick="window.editOperator(${op.id_operario})">
+                                                    Editar
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
                     `}
                 </div>
+            </div>
 
-                <!-- Modal Form -->
-                <div id="operator-modal" class="modal-backdrop" style="display: none;">
-                    <div class="modal" onclick="event.stopPropagation()">
-                        <div class="modal__header">
-                            <h3 class="modal__title">Nuevo Operario</h3>
-                            <button class="modal__close" onclick="window.hideOperatorForm()">×</button>
+            <!-- Modal Form -->
+            <div id="operator-modal" class="modal-backdrop" style="display: none;">
+                <div class="modal" onclick="event.stopPropagation()">
+                    <div class="modal__header">
+                        <h3 class="modal__title">${editingId ? 'Editar' : 'Nuevo'} Operario</h3>
+                        <button class="modal__close" onclick="window.hideOperatorForm()">×</button>
+                    </div>
+                    
+                    <form id="operator-form">
+                        <div class="form-group">
+                            <label class="form-label">Nombre Completo *</label>
+                            <input type="text" class="form-input" name="nombre" required />
                         </div>
                         
-                        <form id="operator-form">
+                        <div class="grid grid-2">
                             <div class="form-group">
-                                <label class="form-label">Nombre Completo *</label>
-                                <input type="text" class="form-input" name="nombre" required />
+                                <label class="form-label">Usuario *</label>
+                                <input type="text" class="form-input" name="username" required />
                             </div>
                             
-                            <div class="grid grid-2">
-                                <div class="form-group">
-                                    <label class="form-label">Usuario *</label>
-                                    <input type="text" class="form-input" name="username" required />
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">Contraseña *</label>
-                                    <input type="password" class="form-input" name="password" required />
-                                </div>
+                            <div class="form-group">
+                                <label class="form-label">Contraseña *</label>
+                                <input type="password" class="form-input" name="password" ${editingId ? '' : 'required'} placeholder="${editingId ? 'Dejar en blanco para mantener' : ''}" />
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-2">
+                            <div class="form-group">
+                                <label class="form-label">Especialidad *</label>
+                                <select class="form-select" name="especialidad" required>
+                                    <option value="">Seleccionar especialidad...</option>
+                                    <option value="Torneador">Torneador</option>
+                                    <option value="Fresador">Fresador</option>
+                                    <option value="Taladrador">Taladrador</option>
+                                    <option value="Operador de máquinas">Operador de máquinas</option>
+                                </select>
                             </div>
                             
-                            <div class="grid grid-2">
-                                <div class="form-group">
-                                    <label class="form-label">Especialidad</label>
-                                    <input type="text" class="form-input" name="especialidad" placeholder="Ej: Torneado, Fresado" />
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label class="form-label">Rol *</label>
-                                    <select class="form-select" name="role" required>
-                                        <option value="operator">Operador</option>
-                                        <option value="admin">Administrador</option>
-                                    </select>
-                                </div>
+                            <div class="form-group">
+                                <label class="form-label">Rol *</label>
+                                <select class="form-select" name="role" required>
+                                    <option value="operator">Operador</option>
+                                    <option value="admin">Administrador</option>
+                                </select>
                             </div>
-                            
-                            <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
-                                <button type="submit" class="btn btn-primary" style="flex: 1;">
-                                    Crear Operario
-                                </button>
-                                <button type="button" class="btn btn-secondary" onclick="window.hideOperatorForm()">
-                                    Cancelar
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
+                            <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                ${editingId ? 'Actualizar' : 'Crear'} Operario
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="window.hideOperatorForm()">
+                                Cancelar
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         `;
@@ -140,6 +152,7 @@ export const renderOperators = () => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 modal.style.display = 'none';
+                editingId = null;
             }
         });
 
@@ -148,15 +161,24 @@ export const renderOperators = () => {
 
             const formData = new FormData(form);
 
-            // Note: This would need a proper API endpoint
-            alert('Funcionalidad de crear operarios requiere endpoint backend adicional');
+            if (editingId) {
+                alert(`Simulación: Operario #${editingId} actualizado (Backend pendiente)`);
+            } else {
+                alert('Simulación: Nuevo operario creado (Backend pendiente)');
+            }
+
             modal.style.display = 'none';
+            editingId = null;
             form.reset();
+            loadOperators(); // Re-render to clear editingId from template
         });
     };
 
     // Global functions
     window.showOperatorForm = () => {
+        editingId = null;
+        container.innerHTML = renderContent(); // Update title to "Nuevo"
+        setupEventListeners();
         const modal = container.querySelector('#operator-modal');
         const form = container.querySelector('#operator-form');
         form.reset();
@@ -166,6 +188,26 @@ export const renderOperators = () => {
     window.hideOperatorForm = () => {
         const modal = container.querySelector('#operator-modal');
         modal.style.display = 'none';
+        editingId = null;
+    };
+
+    window.editOperator = (id) => {
+        const op = operators.find(o => o.id_operario === id);
+        if (!op) return;
+
+        editingId = id;
+        container.innerHTML = renderContent(); // Update title to "Editar"
+        setupEventListeners();
+
+        const form = container.querySelector('#operator-form');
+        form.nombre.value = op.nombre;
+        form.username.value = op.username;
+        form.especialidad.value = op.especialidad || '';
+        form.role.value = op.role;
+        // Password is left blank for edits
+
+        const modal = container.querySelector('#operator-modal');
+        modal.style.display = 'flex';
     };
 
     loadOperators();

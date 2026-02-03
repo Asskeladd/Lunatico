@@ -29,13 +29,26 @@ export const renderOrders = () => {
                             <p>No hay órdenes registradas</p>
                         </div>
                     ` : `
-                        <table class="modern-table">
+                        <table class="modern-table" style="table-layout: fixed; width: 100%;">
+                            <colgroup>
+                                <col style="width: 70px;">
+                                <col style="width: 70px;">
+                                <col style="width: 130px;">
+                                <col style="width: 70px;">
+                                <col style="width: 105px;">
+                                <col style="width: 105px;">
+                                <col style="width: 85px;">
+                                <col style="width: 95px;">
+                                <col style="width: 150px;">
+                                <col style="width: 160px;">
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Cliente</th>
-                                    <th>Tipo Pieza</th>
+                                    <th>ID Orden</th>
+                                    <th>ID Cliente</th>
+                                    <th>Tipo de Pieza</th>
                                     <th>Cantidad</th>
+                                    <th>Fecha Recepción</th>
                                     <th>Fecha Entrega</th>
                                     <th>Prioridad</th>
                                     <th>Estado</th>
@@ -47,9 +60,10 @@ export const renderOrders = () => {
                                 ${orders.map(order => `
                                     <tr>
                                         <td><strong>#${order.id_orden}</strong></td>
-                                        <td>${order.cliente_nombre || 'N/A'}</td>
+                                        <td>#${order.id_cliente}</td>
                                         <td>${order.tipo_pieza || '-'}</td>
                                         <td>${order.cantidad}</td>
+                                        <td>${order.fecha_recepcion ? new Date(order.fecha_recepcion).toLocaleDateString() : '-'}</td>
                                         <td>${order.fecha_entrega ? new Date(order.fecha_entrega).toLocaleDateString() : '-'}</td>
                                         <td>
                                             <span class="badge badge--${order.prioridad === 'Alta' ? 'danger' : order.prioridad === 'Media' ? 'warning' : 'info'}">
@@ -57,25 +71,28 @@ export const renderOrders = () => {
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="badge badge--${order.estado === 'Completada' ? 'success' : order.estado === 'En Progreso' ? 'info' : 'warning'}">
+                                            <span class="badge badge--${order.estado === 'Completada' ? 'success' : order.estado === 'En Progreso' ? 'info' : 'warning'}" style="white-space: nowrap;">
                                                 ${order.estado}
                                             </span>
                                         </td>
                                         <td>
-                                            <div style="display: flex; align-items: center; gap: var(--space-sm);">
-                                                <div style="flex: 1; height: 6px; background: var(--border-light); border-radius: var(--radius-full); overflow: hidden;">
-                                                    <div style="width: ${order.progress || 0}%; height: 100%; background: var(--gradient-primary);"></div>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <div style="flex: 1; height: 6px; background: var(--border-light); border-radius: var(--radius-full); overflow: hidden; min-width: 60px;">
+                                                    <div style="width: ${order.progress || 0}%; height: 100%; background: ${(order.progress || 0) >= 80 ? 'linear-gradient(90deg, #10b981 0%, #34d399 100%)' :
+                (order.progress || 0) >= 40 ? 'linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)' :
+                    'linear-gradient(90deg, #ef4444 0%, #f87171 100%)'
+            };"></div>
                                                 </div>
-                                                <span style="font-size: 0.75rem; color: var(--text-muted); min-width: 35px;">${order.progress || 0}%</span>
+                                                <span style="font-size: 0.7rem; color: var(--text-muted); white-space: nowrap;">${order.progress || 0}%</span>
                                             </div>
                                         </td>
                                         <td>
-                                            <div style="display: flex; gap: var(--space-sm);">
-                                                <button class="btn btn-sm btn-secondary" onclick="window.editOrder(${order.id_orden})">
+                                            <div style="display: flex; gap: 8px; justify-content: flex-start;">
+                                                <button class="btn btn-sm btn-secondary" onclick="window.editOrder(${order.id_orden})" style="padding: 6px 12px; font-size: 0.8rem;">
                                                     Editar
                                                 </button>
                                                 ${isAdmin() ? `
-                                                    <button class="btn btn-sm" style="background: var(--color-danger); color: white;" onclick="window.deleteOrder(${order.id_orden})">
+                                                    <button class="btn btn-sm" style="background: var(--color-danger); color: white; padding: 6px 12px; font-size: 0.8rem;" onclick="window.deleteOrder(${order.id_orden})">
                                                         Eliminar
                                                     </button>
                                                 ` : ''}
@@ -87,9 +104,10 @@ export const renderOrders = () => {
                         </table>
                     `}
                 </div>
+            </div>
 
-                <!-- Modal Form -->
-                <div id="order-modal" class="modal-backdrop" style="display: none;">
+            <!-- Modal Form -->
+            <div id="order-modal" class="modal-backdrop" style="display: none;">
                     <div class="modal" onclick="event.stopPropagation()">
                         <div class="modal__header">
                             <h3 class="modal__title">${editingId ? 'Editar' : 'Nueva'} Orden</h3>
@@ -107,8 +125,25 @@ export const renderOrders = () => {
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label class="form-label">Tipo de Pieza</label>
-                                    <input type="text" class="form-input" name="tipo_pieza" />
+                                    <label class="form-label">Tipo de Pieza *</label>
+                                    <select class="form-select" name="tipo_pieza" required>
+                                        <option value="">Seleccionar tipo...</option>
+                                        <option value="Acoples">Acoples</option>
+                                        <option value="Bridas">Bridas</option>
+                                        <option value="Bujes">Bujes</option>
+                                        <option value="Cantilever">Cantilever</option>
+                                        <option value="Chaveteros">Chaveteros</option>
+                                        <option value="Cuerpo de Bomba">Cuerpo de Bomba</option>
+                                        <option value="Distanciadores">Distanciadores</option>
+                                        <option value="Ejes">Ejes</option>
+                                        <option value="Impulsores">Impulsores</option>
+                                        <option value="Machones">Machones</option>
+                                        <option value="Pernos">Pernos</option>
+                                        <option value="Poleas">Poleas</option>
+                                        <option value="Rodillos">Rodillos</option>
+                                        <option value="Soportes de Motor">Soportes de Motor</option>
+                                        <option value="Tornillos">Tornillos</option>
+                                    </select>
                                 </div>
                             </div>
                             
@@ -138,23 +173,21 @@ export const renderOrders = () => {
                                 </div>
                             </div>
                             
-                            ${editingId ? `
-                                <div class="grid grid-2">
-                                    <div class="form-group">
-                                        <label class="form-label">Estado</label>
-                                        <select class="form-select" name="estado">
-                                            <option value="Pendiente">Pendiente</option>
-                                            <option value="En Progreso">En Progreso</option>
-                                            <option value="Completada">Completada</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label class="form-label">Progreso (%)</label>
-                                        <input type="number" class="form-input" name="progress" min="0" max="100" />
-                                    </div>
+                            <div class="grid grid-2">
+                                <div class="form-group">
+                                    <label class="form-label">Estado</label>
+                                    <select class="form-select" name="estado">
+                                        <option value="Pendiente">Pendiente</option>
+                                        <option value="En Progreso">En Progreso</option>
+                                        <option value="Completada">Completada</option>
+                                    </select>
                                 </div>
-                            ` : ''}
+                                
+                                <div class="form-group">
+                                    <label class="form-label">Progreso (%)</label>
+                                    <input type="number" class="form-input" name="progress" min="0" max="100" value="0" />
+                                </div>
+                            </div>
                             
                             <div style="display: flex; gap: var(--space-md); margin-top: var(--space-xl);">
                                 <button type="submit" class="btn btn-primary" style="flex: 1;">
@@ -167,7 +200,6 @@ export const renderOrders = () => {
                         </form>
                     </div>
                 </div>
-            </div>
         `;
     };
 
@@ -211,10 +243,9 @@ export const renderOrders = () => {
                 prioridad: formData.get('prioridad')
             };
 
-            if (editingId) {
-                data.estado = formData.get('estado');
-                data.progress = parseInt(formData.get('progress')) || 0;
-            }
+            // Include estado and progress for both create and edit
+            data.estado = formData.get('estado') || 'Pendiente';
+            data.progress = parseInt(formData.get('progress')) || 0;
 
             try {
                 if (editingId) {
@@ -238,10 +269,10 @@ export const renderOrders = () => {
         editingId = null;
         const modal = container.querySelector('#order-modal');
         const form = container.querySelector('#order-form');
-        form.reset();
-        modal.style.display = 'flex';
-        container.innerHTML = renderContent();
-        setupEventListeners();
+        if (form && modal) {
+            form.reset();
+            modal.style.display = 'flex';
+        }
     };
 
     window.hideOrderForm = () => {
